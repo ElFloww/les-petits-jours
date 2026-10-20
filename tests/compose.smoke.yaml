@@ -1,0 +1,8 @@
+services:
+  proxy:
+    ports: !override
+      - "127.0.0.1:18443:443"
+      - "127.0.0.1:18080:80"
+  api:
+    volumes:
+      - ./content:/content:ro

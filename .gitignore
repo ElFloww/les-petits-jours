@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/TestResults/
+**/playwright-report/
+**/test-results/
+**/coverage/
+**/*.tsbuildinfo
+.env
+.env.*
+!.env.example
+private/
+.keys/
+*.bak
+*.user
+.vs/

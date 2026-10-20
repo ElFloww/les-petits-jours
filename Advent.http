@@ -1,0 +1,103 @@
+@baseUrl = http://localhost:5080
+@username = louisa
+@password = {{$processEnv ADVENT_PASSWORD}}
+
+### Obtain token; retain cookies in the HTTP client
+# @name csrf
+GET {{baseUrl}}/api/auth/csrf
+
+### Login; never save a password in this file
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+X-CSRF-Token: {{csrf.response.body.$.token}}
+
+{"username":"{{username}}","password":"{{password}}"}
+
+### Renew token after login (the principal changed)
+# @name authenticatedCsrf
+GET {{baseUrl}}/api/auth/csrf
+
+### My account
+GET {{baseUrl}}/api/auth/me
+
+### All 24 states, no content
+GET {{baseUrl}}/api/calendar/
+
+### Read a published available surprise
+GET {{baseUrl}}/api/calendar/1
+
+### Register first opening, or reread
+POST {{baseUrl}}/api/calendar/1/open
+X-CSRF-Token: {{authenticatedCsrf.response.body.$.token}}
+
+### Future: 403 before 24 December, Paris time
+GET {{baseUrl}}/api/calendar/24
+
+### Invalid day: 400
+GET {{baseUrl}}/api/calendar/25
+
+### Server-side revocation
+POST {{baseUrl}}/api/auth/logout
+X-CSRF-Token: {{authenticatedCsrf.response.body.$.token}}
+
+### Database readiness
+GET {{baseUrl}}/health
+
+### Development atelier: future or draft content, no opening is registered
+### Returns 404 in Production or when Preview:Enabled is false
+GET {{baseUrl}}/api/preview/calendar/24
+
+### Save a separate local draft; does not replace a published gift
+PUT {{baseUrl}}/api/preview/calendar/24
+Content-Type: application/json
+X-CSRF-Token: {{authenticatedCsrf.response.body.$.token}}
+
+{
+  "publish": false,
+  "content": {
+    "day": 24,
+    "kind": "surprise",
+    "title": "Une petite lumière",
+    "text": "Un grand message peut prendre toute sa place ici.",
+    "sticker": "sourire",
+    "reviewed": false,
+    "blocks": [
+      { "type": "quote", "text": "Une attention à partager.", "caption": "Pour toi" }
+    ]
+  }
+}
+
+### Upload a private image: replace this path with your own file
+### POST body is raw binary, not multipart. Use the matching Content-Type.
+# @name uploadedMedia
+POST {{baseUrl}}/api/preview/calendar/24/media
+Content-Type: image/png
+X-CSRF-Token: {{authenticatedCsrf.response.body.$.token}}
+
+< C:\path\to\your-image.png
+
+### Preview the uploaded media (local workshop only)
+GET {{baseUrl}}/api/preview/calendar/24/media/{{uploadedMedia.response.body.$.mediaId}}
+
+### Publish only after review; include the media in the published content
+PUT {{baseUrl}}/api/preview/calendar/24
+Content-Type: application/json
+X-CSRF-Token: {{authenticatedCsrf.response.body.$.token}}
+
+{
+  "publish": true,
+  "content": {
+    "day": 24, "kind": "surprise", "title": "Une petite lumière",
+    "text": "", "sticker": "sourire", "reviewed": true,
+    "blocks": [
+      { "type": "image", "mediaId": "{{uploadedMedia.response.body.$.mediaId}}", "caption": "Une lumière de Noël" }
+    ]
+  }
+}
+
+### Private published media: 403 before the date, 404 if not attached to the published gift
+GET {{baseUrl}}/api/calendar/24/media/{{uploadedMedia.response.body.$.mediaId}}
+Range: bytes=0-1023
+
+### Development only
+GET {{baseUrl}}/openapi/v1.json

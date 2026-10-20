@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/database/">
+    <Project Path="database/Advent.Database.sqlproj" Type="42ea0dbd-9cf1-443e-919e-be9c484e4577" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Advent.Api/Advent.Api.csproj" />
+    <Project Path="src/Advent.Application/Advent.Application.csproj" />
+    <Project Path="src/Advent.Domain/Advent.Domain.csproj" />
+    <Project Path="src/Advent.Infrastructure/Advent.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Advent.Tests/Advent.Tests.csproj" />
+  </Folder>
+</Solution>
