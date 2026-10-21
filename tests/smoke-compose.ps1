@@ -7,7 +7,7 @@ $env:ADVENT_PASSWORD = [guid]::NewGuid().ToString('N') + '!Aa9'
 $env:SITE_DOMAIN = 'localhost'
 
 function Compose {
-    & docker compose -p $project -f .\compose.yaml -f .\tests\compose.smoke.yaml @args
+    & docker compose -p $project -f .\compose.production.yaml -f .\tests\compose.smoke.yaml @args
     if ($LASTEXITCODE -ne 0) { throw "Docker Compose failed: $($args[0])" }
 }
 
@@ -57,6 +57,6 @@ try {
     Write-Output 'PASS: HTTPS, secure login, CSRF, 24 days, persisted sessions, SQL backup and restore.'
     $client.Dispose()
 } finally {
-    & docker compose -p $project -f .\compose.yaml -f .\tests\compose.smoke.yaml --profile tools down -v --remove-orphans --rmi local
+    & docker compose -p $project -f .\compose.production.yaml -f .\tests\compose.smoke.yaml --profile tools down -v --remove-orphans --rmi local
     Remove-Item Env:\MSSQL_SA_PASSWORD, Env:\APP_DB_PASSWORD, Env:\ADVENT_PASSWORD, Env:\SITE_DOMAIN
 }

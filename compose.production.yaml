@@ -1,0 +1,130 @@
+name: advent2026
+
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Express
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Configure MSSQL_SA_PASSWORD}
+      MSSQL_MEMORY_LIMIT_MB: "2048"
+    volumes:
+      - sql-data:/var/opt/mssql
+    networks: [data]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "SQLCMDPASSWORD=\"$$MSSQL_SA_PASSWORD\" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 45s
+
+  schema:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: deploy/database.Dockerfile
+    environment:
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Configure MSSQL_SA_PASSWORD}
+    networks: [data]
+    depends_on:
+      sql: { condition: service_healthy }
+    restart: "no"
+
+  provision:
+    profiles: [tools]
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+    environment:
+      ConnectionStrings__Advent: "Server=sql;Database=Advent2026;User Id=sa;Password=${MSSQL_SA_PASSWORD};Encrypt=True;TrustServerCertificate=True"
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Configure APP_DB_PASSWORD}
+      INITIAL_ADMIN_EMAIL: "${INITIAL_ADMIN_EMAIL:-}"
+      INITIAL_ADMIN_PASSWORD: "${INITIAL_ADMIN_PASSWORD:-}"
+    command: ["admin", "provision-db"]
+    networks: [data]
+    depends_on:
+      sql: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: deploy/api.Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      AllowedHosts: "${SITE_DOMAIN:?Configure SITE_DOMAIN};api;localhost"
+      ConnectionStrings__Advent: "Server=sql;Database=Advent2026;User Id=advent_app;Password=${APP_DB_PASSWORD};Encrypt=True;TrustServerCertificate=True"
+      DataProtection__Path: /keys
+      PasswordReset__BaseUrl: "https://${SITE_DOMAIN:?Configure SITE_DOMAIN}"
+      Smtp__Host: "${SMTP_HOST:-}"
+      Smtp__Port: "${SMTP_PORT:-587}"
+      Smtp__EnableSsl: "${SMTP_ENABLE_SSL:-true}"
+      Smtp__Username: "${SMTP_USERNAME:-}"
+      Smtp__Password: "${SMTP_PASSWORD:-}"
+      Smtp__FromAddress: "${SMTP_FROM_ADDRESS:-}"
+      Smtp__FromName: "${SMTP_FROM_NAME:-Les petits jours}"
+      Proxy__Address: 172.29.216.10
+    volumes:
+      - api-keys:/keys
+    networks: [web, data]
+    depends_on:
+      sql: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    security_opt: [no-new-privileges:true]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
+    networks: [web]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    security_opt: [no-new-privileges:true]
+
+  proxy:
+    image: caddy:2-alpine
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Configure SITE_DOMAIN}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      web:
+        ipv4_address: 172.29.216.10
+    depends_on:
+      api: { condition: service_healthy }
+      frontend: { condition: service_healthy }
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    security_opt: [no-new-privileges:true]
+
+networks:
+  web:
+    ipam:
+      config:
+        - subnet: 172.29.216.0/24
+  data:
+    internal: true
+
+volumes:
+  sql-data:
+  api-keys:
+  caddy-data:
+  caddy-config:

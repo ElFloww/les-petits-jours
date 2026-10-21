@@ -7,3 +7,7 @@ FROM (VALUES
     (CONVERT(UNIQUEIDENTIFIER, 'c3333333-3333-4333-8333-333333333333'), N'thomas', N'Thomas')
 ) AS seed ([Id], [Username], [DisplayName])
 WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Users] existing WHERE existing.[Username] = seed.[Username]);
+
+INSERT INTO [dbo].[Users] ([Id], [Username], [DisplayName], [IsActive], [IsAdmin])
+SELECT CONVERT(UNIQUEIDENTIFIER, 'd4444444-4444-4444-8444-444444444444'), N'admin', N'Administration', 0, 1
+WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Users] existing WHERE existing.[Username] = N'admin');

@@ -10,7 +10,7 @@ public sealed class DatabaseHealthCheck(IServiceScopeFactory scopes) : IHealthCh
     {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AdventDbContext>();
-        var ready = await db.Users.AsNoTracking().CountAsync(ct) == 3;
+        var ready = await db.Users.AsNoTracking().CountAsync(ct) >= 3;
         return ready ? HealthCheckResult.Healthy() : HealthCheckResult.Unhealthy("Schema or seed is incomplete.");
     }
 }

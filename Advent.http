@@ -1,5 +1,5 @@
 @baseUrl = http://localhost:5080
-@username = louisa
+@email = admin@localhost.test
 @password = {{$processEnv ADVENT_PASSWORD}}
 
 ### Obtain token; retain cookies in the HTTP client
@@ -11,7 +11,21 @@ POST {{baseUrl}}/api/auth/login
 Content-Type: application/json
 X-CSRF-Token: {{csrf.response.body.$.token}}
 
-{"username":"{{username}}","password":"{{password}}"}
+{"email":"{{email}}","password":"{{password}}"}
+
+### Request a password reset (configure SMTP first)
+POST {{baseUrl}}/api/auth/forgot-password
+Content-Type: application/json
+X-CSRF-Token: {{authenticatedCsrf.response.body.$.token}}
+
+{"email":"{{email}}"}
+
+### Complete password reset (use the one-time token from the email)
+POST {{baseUrl}}/api/auth/reset-password
+Content-Type: application/json
+X-CSRF-Token: {{authenticatedCsrf.response.body.$.token}}
+
+{"token":"replace-with-email-token","password":"replace-with-a-long-new-password"}
 
 ### Renew token after login (the principal changed)
 # @name authenticatedCsrf

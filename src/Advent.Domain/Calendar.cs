@@ -22,9 +22,18 @@ public sealed class User
 {
     public Guid Id { get; set; }
     public required string Username { get; set; }
+    public string? Email { get; set; }
     public required string DisplayName { get; set; }
     public string? PasswordHash { get; set; }
     public bool IsActive { get; set; }
+    public bool IsAdmin { get; set; }
+}
+
+public sealed class PasswordResetToken
+{
+    public required string TokenHash { get; set; }
+    public Guid UserId { get; set; }
+    public DateTimeOffset ExpiresAt { get; set; }
 }
 
 public sealed class CalendarEntry

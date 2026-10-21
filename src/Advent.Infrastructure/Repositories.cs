@@ -8,8 +8,45 @@ public sealed class UserRepository(AdventDbContext db) : IUserRepository
 {
     public Task<User?> FindByUsername(string username, CancellationToken ct) =>
         db.Users.SingleOrDefaultAsync(x => x.Username == username, ct);
+    public Task<User?> FindByEmail(string email, CancellationToken ct) =>
+        db.Users.SingleOrDefaultAsync(x => x.Email == email, ct);
     public Task<User?> FindById(Guid id, CancellationToken ct) =>
         db.Users.SingleOrDefaultAsync(x => x.Id == id, ct);
+    public async Task<IReadOnlyList<User>> List(CancellationToken ct) =>
+        await db.Users.AsNoTracking().OrderBy(x => x.DisplayName).ToArrayAsync(ct);
+    public Task<bool> EmailExists(string email, Guid? exceptId, CancellationToken ct) =>
+        db.Users.AnyAsync(x => x.Email == email && x.Id != exceptId, ct);
+    public Task<int> CountActiveAdmins(CancellationToken ct) =>
+        db.Users.CountAsync(x => x.IsAdmin && x.IsActive, ct);
+    public void Add(User user) => db.Users.Add(user);
+    public void Remove(User user) => db.Users.Remove(user);
+}
+
+public sealed class PasswordResetRepository(AdventDbContext db) : IPasswordResetRepository
+{
+    public void Add(PasswordResetToken token) => db.PasswordResetTokens.Add(token);
+
+    public async Task ResetPassword(string tokenHash, string passwordHash, DateTimeOffset now, CancellationToken ct)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var token = await db.PasswordResetTokens.SingleOrDefaultAsync(
+            x => x.TokenHash == tokenHash && x.ExpiresAt > now, ct);
+        if (token is null) throw new AppException(400, "Ce lien de réinitialisation est invalide ou expiré.");
+
+        var user = await db.Users.SingleOrDefaultAsync(x => x.Id == token.UserId && x.IsActive, ct)
+            ?? throw new AppException(400, "Ce lien de réinitialisation est invalide ou expiré.");
+        var consumed = await db.PasswordResetTokens.Where(x => x.TokenHash == tokenHash && x.ExpiresAt > now)
+            .ExecuteDeleteAsync(ct);
+        if (consumed != 1) throw new AppException(400, "Ce lien de réinitialisation est invalide ou expiré.");
+        user.PasswordHash = passwordHash;
+        await db.PasswordResetTokens.Where(x => x.UserId == user.Id).ExecuteDeleteAsync(ct);
+        await db.Sessions.Where(x => x.UserId == user.Id).ExecuteDeleteAsync(ct);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    public async Task DeleteExpired(DateTimeOffset now, CancellationToken ct) =>
+        await db.PasswordResetTokens.Where(x => x.ExpiresAt <= now).ExecuteDeleteAsync(ct);
 }
 
 public sealed class CalendarRepository(AdventDbContext db) : ICalendarRepository

@@ -22,6 +22,7 @@ public static class DatabaseProvisioner
             GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::[dbo].[CalendarEntries] TO [advent_app];
             GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::[dbo].[CalendarMedia] TO [advent_app];
             GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::[dbo].[Sessions] TO [advent_app];
+            GRANT SELECT, INSERT, UPDATE, DELETE ON OBJECT::[dbo].[PasswordResetTokens] TO [advent_app];
             """;
         command.Parameters.Add(new SqlParameter("@password", System.Data.SqlDbType.NVarChar, 128) { Value = password });
         await command.ExecuteNonQueryAsync(ct);

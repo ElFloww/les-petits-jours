@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
     && mkdir /keys && chown "$APP_UID" /keys
 WORKDIR /app
 COPY --from=build /app .
+COPY deploy/local-api-entrypoint.sh /usr/local/bin/local-api-entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/local-api-entrypoint.sh && chmod 555 /usr/local/bin/local-api-entrypoint.sh
 ENV ASPNETCORE_HTTP_PORTS=8080
 USER $APP_UID
 EXPOSE 8080

@@ -29,8 +29,8 @@ Décisions de la première version :
   dans la page. Son tracé s'adapte aux petits écrans, sans changer l'ordre des jours,
   les états des cadeaux ni la navigation au clavier.
 - Première ouverture enregistrée ; relecture et appels concurrents ne changent pas sa date.
-- Administration par CLI et fichier JSON privé, ou par l'éditeur web **réservé à l'atelier local**.
-  Aucune interface d'administration n'est exposée en Production.
+- Gestion des contenus par CLI et fichier JSON privé, ou par l'éditeur web **réservé à l'atelier local**.
+  Le panneau de comptes est réservé aux administrateurs et reste disponible en Production.
 - Les 72 textes fournis sont des **brouillons à relire**, sans souvenir personnel inventé.
   `reviewed: true` est requis sur chaque texte avant une publication explicite.
 - Une phrase décorative varie de façon pseudo-aléatoire **par personne et date de Paris**.
@@ -41,28 +41,77 @@ Décisions de la première version :
   Les catégories `blague`, `anecdote`, `activite`, `surprise` peuvent contenir du texte,
   des citations, des images, des vidéos et de l'audio.
 
-### Prérequis locaux
+### Prérequis pour lancer l'API directement
 
 .NET SDK 10, Node.js 24, SQL Server 2019 ou plus récent (Express convient).
 Les outils SQL sont restaurés localement, sans installation globale.
 
-Depuis la racine, dans PowerShell :
+### Préparation initiale
+
+À effectuer une seule fois, depuis la racine, dans PowerShell :
 
 ```powershell
 dotnet tool restore
 dotnet build .\Advent.slnx
 dotnet sqlpackage /Action:Publish /SourceFile:".\database\bin\Debug\Advent.Database.dacpac" /TargetConnectionString:"Server=.\SQLEXPRESS;Database=Advent2026;Integrated Security=True;Encrypt=True;TrustServerCertificate=True" /p:BlockOnPossibleDataLoss=True
 dotnet user-secrets set "ConnectionStrings:Advent" "Server=.\SQLEXPRESS;Database=Advent2026;Integrated Security=True;Encrypt=True;TrustServerCertificate=True" --project .\src\Advent.Api
-Set-Location .\frontend
-npm ci
+npm ci --prefix .\frontend
+```
+
+### Démarrage quotidien
+
+Depuis la racine, ouvrez deux terminaux :
+
+```powershell
+dotnet run --project .\src\Advent.Api
+```
+
+```powershell
 npm run dev
 ```
 
-Dans un second terminal, à la racine : `dotnet run --project .\src\Advent.Api`.
+Le script `npm run dev` à la racine démarre Vite dans `frontend/`.
 Frontend : <http://127.0.0.1:5173> ; API : <http://localhost:5080>.
 Vite relaie `/api` vers l'API : aucune configuration CORS permissive n'est nécessaire.
-`/health` vérifie SQL et les trois comptes ; `/openapi/v1.json` n'existe qu'en développement.
+`/health` vérifie SQL et les comptes ; `/openapi/v1.json` n'existe qu'en développement.
+Après le déploiement du schéma SQL, le démarrage local de l'API crée l'administrateur s'il n'existe
+aucun compte, ou configure le compte `admin` inactif semé par le post-deploy. Connexion :
+`admin@localhost.test` / `Advent2026!Local`. Ces identifiants sont réservés au développement ;
+changez-les ensuite dans **Administration**. Les identifiants sont conservés aux redémarrages.
 Le fichier [Advent.http](./Advent.http) décrit les requêtes, y compris le renouvellement anti-CSRF.
+
+### Démarrer toute l'application avec Docker
+
+Docker Desktop avec Compose v2 suffit ; aucun SQL Server n'a besoin d'être installé sur l'hôte.
+Depuis la racine du dépôt :
+
+```powershell
+docker compose up --build
+```
+
+Ouvrir <http://localhost:8080>. Au premier démarrage, Compose construit les images, génère les
+identifiants SQL aléatoires dans un volume Docker local, publie le schéma, crée le compte SQL
+applicatif à permissions limitées et active automatiquement l'administrateur local. Connectez-vous
+avec `admin@localhost.test` / `Advent2026!Local`. Ces identifiants sont réservés au développement :
+ne les utilisez jamais en production. Pour les personnaliser, définissez `LOCAL_ADMIN_EMAIL` et
+`LOCAL_ADMIN_PASSWORD` avant le lancement. Les données persistent dans les volumes ;
+`docker compose down -v` les supprime.
+
+Les trois comptes du calendrier restent désactivés jusqu'à la définition de leurs mots de passe.
+Pour en activer un depuis PowerShell, saisir un mot de passe temporairement sans le mettre dans
+le Compose :
+
+```powershell
+$secret = Read-Host "Nouveau mot de passe (14 caractères minimum)" -AsSecureString
+$env:ADVENT_PASSWORD = [System.Net.NetworkCredential]::new("", $secret).Password
+try {
+    docker compose run --rm -e ADVENT_PASSWORD api admin set-password louisa
+} finally {
+    Remove-Item Env:\ADVENT_PASSWORD
+}
+```
+
+Répéter pour `orleane` et `thomas` si nécessaire. Les comptes n'ont pas de mot de passe par défaut.
 
 La chaîne intégrée ci-dessus ne contient aucun secret. Pour une autre instance, utiliser
 `ConnectionStrings__Advent` ou les secrets utilisateur .NET. Ne jamais ajouter un mot de passe
@@ -71,9 +120,50 @@ les secrets utilisateur ne sont chargés qu'en environnement `Development`.
 
 ### Comptes
 
-Le DACPAC initialise `louisa`, `orleane` et `thomas`, **désactivés et sans mot de passe**.
+Le DACPAC initialise `louisa`, `orleane` et `thomas`, **désactivés et sans mot de passe ni email**.
 Il est idempotent : un redéploiement ne réinitialise ni les comptes, ni les contenus, ni les ouvertures.
 Les noms affichés sont Louisa, Orléane et Thomas.
+
+Le DACPAC initialise également le compte `admin`, désactivé tant que le provisionnement ne l'a pas
+activé avec les identifiants fournis. Le Compose local effectue cette étape automatiquement.
+La connexion se fait par email et mot de passe. Les sessions sont conservées dans un cookie
+HttpOnly sécurisé pendant 30 jours (aucun jeton d'authentification en localStorage). Les comptes
+historiques doivent recevoir un email dans le panneau avant leur connexion par le site.
+
+En production, configurez `INITIAL_ADMIN_EMAIL` et `INITIAL_ADMIN_PASSWORD` comme secrets
+d'environnement avant le premier provisionnement (`docker compose -f compose.production.yaml
+--profile tools run --rm provision`). Aucun identifiant de production n'est fourni par défaut.
+Le compte initial est configuré une seule fois ; les redéploiements ne remplacent pas ses
+identifiants. Pour promouvoir ensuite un autre compte, la commande reste disponible :
+
+```powershell
+dotnet .\src\Advent.Api\bin\Debug\net10.0\Advent.Api.dll admin promote-admin louisa louisa@example.com
+$secret = Read-Host "Nouveau mot de passe (14 caractères minimum)" -AsSecureString
+$env:ADVENT_PASSWORD = [System.Net.NetworkCredential]::new("", $secret).Password
+try {
+    dotnet .\src\Advent.Api\bin\Debug\net10.0\Advent.Api.dll admin set-password louisa
+} finally {
+    Remove-Item Env:\ADVENT_PASSWORD
+}
+```
+
+Connectez-vous ensuite, puis utilisez **Administration** pour renseigner les emails des comptes
+historiques, créer de nouveaux comptes, modifier les coordonnées, définir un mot de passe ou
+désactiver un compte. L’onglet **Cadeaux** permet de choisir une personne et un jour, puis de
+composer, enregistrer en brouillon ou publier son cadeau. Les changements de mot de passe et la
+désactivation révoquent les sessions. Un compte peut aussi être supprimé définitivement :
+ses cadeaux, médias, sessions et jetons de réinitialisation sont supprimés en cascade. Le panneau
+empêche de supprimer son propre compte ou le dernier administrateur actif.
+Le panneau ne permet pas de promouvoir un autre administrateur ; cette opération reste réservée
+à la CLI `admin promote-admin <identifiant> <email>`.
+
+Les liens « mot de passe oublié » sont envoyés par SMTP. En production, renseigner `SMTP_HOST`,
+`SMTP_PORT`, `SMTP_ENABLE_SSL`, `SMTP_USERNAME`, `SMTP_PASSWORD` et `SMTP_FROM_ADDRESS` dans
+l'environnement du déploiement (ainsi que `SMTP_FROM_NAME` si souhaité). Le lien utilise l'URL
+publique définie depuis `SITE_DOMAIN`. En développement, configurer les mêmes paramètres via
+les secrets utilisateur .NET ou des variables d'environnement, et définir `PasswordReset:BaseUrl`
+sur l'adresse du frontend local. Sans SMTP valide, l'API indique explicitement que la réinitialisation
+n'est pas disponible. Les secrets SMTP restent hors du dépôt.
 
 La CLI utilise la même configuration SQL que l'API. À la racine :
 
@@ -91,7 +181,7 @@ try {
 Répéter pour les autres identifiants avec des mots de passe différents, transmis séparément
 aux destinataires. `set-password` active le compte et révoque toutes ses sessions.
 `admin disable orleane` le désactive et révoque également ses sessions.
-Aucun mot de passe par défaut n'est livré.
+Aucun mot de passe de production par défaut n'est livré.
 
 ### Préparation et publication
 
@@ -174,7 +264,8 @@ Pour le désactiver localement, définir `Preview__Enabled=false` puis redémarr
 **En Production et Staging, aucune route `/api/preview/*` (lecture, édition ou import) n'est enregistrée,
 même si ce paramètre vaut `true`**. Le bouton dépend de la capacité annoncée par l'API,
 pas d'un paramètre Vite ou d'une date du navigateur. Ne jamais exposer l'environnement Development
-aux destinataires ; Compose continue de démarrer l'API en Production.
+aux destinataires ; la stack locale Docker l'utilise pour l'atelier, tandis que
+`compose.production.yaml` démarre l'API en Production.
 
 ### Dates et protection des sessions
 
@@ -184,7 +275,7 @@ aux destinataires ; Compose continue de démarrer l'API en Production.
   Elles restent disponibles après Noël, même l'année suivante.
 - PBKDF2-SHA256, 600 000 itérations et sel aléatoire par mot de passe.
 - Sessions opaques aléatoires de 256 bits ; seul leur SHA-256 est stocké dans SQL.
-  Expiration absolue de huit heures, cookie HttpOnly, SameSite Strict, Secure en production.
+  Expiration absolue de 30 jours, cookie HttpOnly, SameSite Strict, Secure en production.
 - Session contrôlée en base à chaque requête privée. Déconnexion effective côté serveur.
 - Anti-CSRF sur **tous** les POST et PUT, y compris connexion, édition et import.
   Obtenir un nouveau jeton après connexion.
@@ -246,6 +337,9 @@ pas le lancer en parallèle d'une pile utilisant déjà le sous-réseau `172.29.
 
 ### Production : Debian / Proxmox
 
+La configuration de déploiement est dans `compose.production.yaml`. La commande `docker compose up`
+à la racine utilise la stack locale de développement décrite plus haut.
+
 Prévoir une machine **x86-64**, idéalement au moins 4 Go de RAM, Docker Engine et Compose v2.
 Dans un LXC Debian, vérifier nesting, cgroups, stockage et permissions nécessaires à Docker ;
 utiliser une VM si la configuration LXC empêche le démarrage fiable de SQL Server.
@@ -258,6 +352,8 @@ Paramètres à injecter dans l'environnement du serveur ou son gestionnaire de s
 | `SITE_DOMAIN` | Nom DNS du site, pointant vers le serveur |
 | `MSSQL_SA_PASSWORD` | Secret d'administration SQL, fort et unique |
 | `APP_DB_PASSWORD` | Autre secret SQL, 24 à 128 caractères |
+| `INITIAL_ADMIN_EMAIL` | Email du premier administrateur, requis au premier déploiement |
+| `INITIAL_ADMIN_PASSWORD` | Mot de passe du premier administrateur (14 caractères minimum) |
 
 Générer les deux secrets indépendamment avec `openssl rand -hex 32` évite les caractères
 spéciaux des chaînes de connexion et de l'interpolation Compose. Ne jamais stocker ces valeurs
@@ -289,11 +385,11 @@ chiffrer le stockage hôte si nécessaire. Ne pas lancer `docker compose down -v
 Pour administrer après déploiement, exporter temporairement `ADVENT_PASSWORD`, puis :
 
 ```sh
-docker compose run --rm -e ADVENT_PASSWORD api admin set-password louisa
+docker compose -f compose.production.yaml run --rm -e ADVENT_PASSWORD api admin set-password louisa
 unset ADVENT_PASSWORD
-docker compose run --rm -v /chemin/prive/calendar.2026.json:/content.json:ro api admin import /content.json --publish
-docker compose ps
-docker compose logs --tail 100 api
+docker compose -f compose.production.yaml run --rm -v /chemin/prive/calendar.2026.json:/content.json:ro api admin import /content.json --publish
+docker compose -f compose.production.yaml ps
+docker compose -f compose.production.yaml logs --tail 100 api
 ```
 
 Ne pas placer les contenus sous un répertoire servi par le frontend. Restreindre l'accès SSH
@@ -345,7 +441,7 @@ Comptes à prévoir :
 - Orléane
 - Thomas
 
-Prévoir une connexion par identifiant et mot de passe. L'inscription publique n'est pas demandée : les comptes pourront être créés ou préparés par la personne qui gère le site. Ne jamais enregistrer les mots de passe en clair ; utiliser un hachage adapté, des sessions sécurisées, une limitation des tentatives de connexion et une vérification des droits sur chaque requête privée. Les messages d'erreur de connexion ne doivent pas révéler si un identifiant existe.
+Connexion par email et mot de passe. L'inscription publique n'est pas demandée : les comptes sont créés ou préparés par la personne qui gère le site. Ne jamais enregistrer les mots de passe en clair ; utiliser un hachage adapté, des sessions sécurisées, une limitation des tentatives de connexion et une vérification des droits sur chaque requête privée. Les messages d'erreur ne doivent pas révéler si un compte existe.
 
 Chaque requête concernant un calendrier doit être autorisée côté API pour la personne connectée. Masquer une case dans le frontend ne suffit pas à la protéger.
 
@@ -463,7 +559,7 @@ La cible retenue est un **conteneur Debian hébergé sur ton serveur Proxmox**, 
 
 - un `Dockerfile` multi-stage pour construire le frontend React/Vite et le servir avec un serveur web léger ;
 - un `Dockerfile` multi-stage pour publier et exécuter l'API ASP.NET Core ;
-- un fichier `compose.yaml` (ou `docker-compose.yml`) décrivant les services, leur réseau interne, leurs volumes, leurs politiques de redémarrage et leurs contrôles de santé ;
+- des fichiers Compose décrivant les services, leur réseau interne, leurs volumes, leurs politiques de redémarrage et leurs contrôles de santé ;
 - un reverse proxy léger, par exemple Caddy, pour exposer le site en HTTPS et router les requêtes vers le frontend et l'API ;
 - le déploiement du DACPAC SQL Server, avec les scripts pre-deployment et post-deployment, intégré à une étape explicite du déploiement plutôt qu'exécuté à chaque redémarrage de l'application.
 
@@ -496,7 +592,7 @@ Avant le déploiement, vérifier que le conteneur Debian autorise Docker (foncti
 - [x] Définir l'implémentation de l'Unit of Work et la gestion des transactions.
 - [x] Définir les sources de configuration `appsettings` et le stockage sécurisé des secrets.
 - [x] Créer les Dockerfiles de production pour le frontend et l'API.
-- [x] Créer le Compose de production avec frontend, API, SQL Server et reverse proxy HTTPS.
+- [x] Créer `compose.production.yaml` avec frontend, API, SQL Server et reverse proxy HTTPS.
 - [x] Configurer les volumes persistants, contrôles de santé, secrets hors dépôt et sauvegarde/restauration SQL Server.
 - [x] Intégrer le déploiement du DACPAC et vérifier l'exécution sûre des scripts pre-deployment/post-deployment.
 - [x] Choisir le conteneur Debian sur Proxmox comme cible de déploiement.

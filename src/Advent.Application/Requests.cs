@@ -5,7 +5,7 @@ using MediatR;
 
 namespace Advent.Application;
 
-public sealed record LoginCommand(string Username, string Password) : IRequest<LoginResult>;
+public sealed record LoginCommand(string Email, string Password) : IRequest<LoginResult>;
 public sealed record LogoutCommand(string TokenHash) : IRequest;
 public sealed record AccountQuery(Guid UserId) : IRequest<AccountResponse>;
 public sealed record CalendarQuery(Guid UserId) : IRequest<CalendarResponse>;
@@ -16,7 +16,7 @@ public sealed class LoginValidator : AbstractValidator<LoginCommand>
 {
     public LoginValidator()
     {
-        RuleFor(x => x.Username).NotEmpty().MaximumLength(40);
+        RuleFor(x => x.Email).NotEmpty().MaximumLength(254);
         RuleFor(x => x.Password).NotEmpty().MaximumLength(256);
     }
 }
@@ -58,19 +58,24 @@ public sealed class LoginHandler(
     IUserRepository users, IPasswordService passwords, ISessionTokens tokens,
     ISessionRepository sessions, IUnitOfWork uow, TimeProvider clock) : IRequestHandler<LoginCommand, LoginResult>
 {
+    private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(30);
+
     public async Task<LoginResult> Handle(LoginCommand request, CancellationToken ct)
     {
-        var user = await users.FindByUsername(request.Username.Trim().ToLowerInvariant(), ct);
+        var identifier = request.Email.Trim();
+        var user = identifier.Contains('@')
+            ? await users.FindByEmail(identifier.ToLowerInvariant(), ct)
+            : await users.FindByUsername(identifier.ToLowerInvariant(), ct);
         var valid = passwords.Verify(user?.PasswordHash, request.Password);
         if (!valid || user is not { IsActive: true })
             throw new AppException(401, "Identifiant ou mot de passe incorrect.");
 
         var token = tokens.Create();
-        var expires = clock.GetUtcNow().AddHours(8);
+        var expires = clock.GetUtcNow().Add(SessionLifetime);
         await sessions.DeleteExpired(clock.GetUtcNow(), ct);
         sessions.Add(new Session { TokenHash = tokens.Hash(token), UserId = user.Id, ExpiresAt = expires });
         await uow.SaveChanges(ct);
-        return new(new(user.Id, user.Username, user.DisplayName), token, expires);
+        return new(new(user.Id, user.Username, user.Email, user.DisplayName, user.IsAdmin), token, expires);
     }
 }
 
@@ -85,7 +90,7 @@ public sealed class AccountHandler(IUserRepository users) : IRequestHandler<Acco
     {
         var user = await users.FindById(request.UserId, ct);
         if (user is not { IsActive: true }) throw new AppException(401, "Votre session a expiré.");
-        return new(user.Id, user.Username, user.DisplayName);
+        return new(user.Id, user.Username, user.Email, user.DisplayName, user.IsAdmin);
     }
 }
 

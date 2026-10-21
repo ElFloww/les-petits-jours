@@ -5,7 +5,20 @@ namespace Advent.Application;
 public interface IUserRepository
 {
     Task<User?> FindByUsername(string username, CancellationToken ct);
+    Task<User?> FindByEmail(string email, CancellationToken ct);
     Task<User?> FindById(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<User>> List(CancellationToken ct);
+    Task<bool> EmailExists(string email, Guid? exceptId, CancellationToken ct);
+    Task<int> CountActiveAdmins(CancellationToken ct);
+    void Add(User user);
+    void Remove(User user);
+}
+
+public interface IPasswordResetRepository
+{
+    void Add(PasswordResetToken token);
+    Task ResetPassword(string tokenHash, string passwordHash, DateTimeOffset now, CancellationToken ct);
+    Task DeleteExpired(DateTimeOffset now, CancellationToken ct);
 }
 
 public interface ICalendarRepository
@@ -50,13 +63,22 @@ public interface ISessionTokens
     string Hash(string token);
 }
 
+public interface IEmailSender
+{
+    bool IsConfigured { get; }
+    string? PasswordResetBaseUrl { get; }
+    Task SendPasswordReset(string email, string displayName, string link, CancellationToken ct);
+}
+
+public sealed class EmailDeliveryException(string message, Exception innerException) : Exception(message, innerException);
+
 public sealed class AppException(int status, string message) : Exception(message)
 {
     public int Status { get; } = status;
 }
 
 /// <summary>Compte de la personne connectée, sans donnée d'authentification.</summary>
-public sealed record AccountResponse(Guid Id, string Username, string DisplayName);
+public sealed record AccountResponse(Guid Id, string Username, string? Email, string DisplayName, bool IsAdmin);
 /// <summary>État public d'une case du calendrier personnel, sans son contenu.</summary>
 public sealed record DayResponse(int Day, string State, DateTimeOffset UnlocksAt);
 /// <summary>Calendrier personnel et date courante calculée à Paris par le serveur.</summary>

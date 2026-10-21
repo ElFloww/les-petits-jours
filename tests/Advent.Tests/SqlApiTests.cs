@@ -119,7 +119,7 @@ public sealed class SqlApiTests
         using (var scope = fixture.Services.CreateScope())
             await scope.ServiceProvider.GetRequiredService<ISender>().Send(new DisableAccountCommand("orleane"));
         Assert.Equal(HttpStatusCode.Unauthorized, (await orleane.GetAsync("/api/calendar/")).StatusCode);
-        fixture.Clock.Now = fixture.Clock.Now.AddHours(9);
+        fixture.Clock.Now = fixture.Clock.Now.AddDays(31);
         Assert.Equal(HttpStatusCode.Unauthorized, (await thomas.GetAsync("/api/auth/me")).StatusCode);
 
         using var invalid = fixture.CreateClient();
@@ -135,10 +135,154 @@ public sealed class SqlApiTests
         using (var scope = fixture.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<AdventDbContext>();
-            Assert.Equal(3, await db.Users.CountAsync());
+            Assert.Equal(4, await db.Users.CountAsync());
             Assert.Equal(72, await db.CalendarEntries.CountAsync());
             Assert.NotNull((await db.CalendarEntries.SingleAsync(x => x.UserId == Guid.Parse("a1111111-1111-4111-8111-111111111111") && x.Day == 1)).FirstOpenedAt);
         }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task AdminCanManageUsersAndResetPasswordsByEmail()
+    {
+        await using var fixture = new SqlFixture();
+        await fixture.Initialize();
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            await sender.Send(new InitializeDefaultAdminCommand("admin@localhost.test", "Advent2026!Local"));
+            await sender.Send(new InitializeDefaultAdminCommand(null, null));
+        }
+
+        using var admin = fixture.CreateClient();
+        var cookie = await Login(admin, "admin@localhost.test", "Advent2026!Local");
+        Assert.Contains("expires=", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync("/api/admin/users/")).StatusCode);
+        using var anonymous = fixture.CreateClient();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/admin/users/")).StatusCode);
+
+        var create = new HttpRequestMessage(HttpMethod.Post, "/api/admin/users/")
+        {
+            Content = JsonContent.Create(new { email = "ami@example.com", displayName = "Ami", password = fixture.Password })
+        };
+        create.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        var created = await admin.SendAsync(create);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var user = (await created.Content.ReadFromJsonAsync<ManagedUserResponse>())!;
+
+        var adminUser = (await admin.GetFromJsonAsync<ManagedUserResponse[]>("/api/admin/users/"))!
+            .Single(x => x.IsAdmin && x.IsActive);
+        var selfDelete = new HttpRequestMessage(HttpMethod.Delete, $"/api/admin/users/{adminUser.Id}");
+        selfDelete.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        Assert.Equal(HttpStatusCode.BadRequest, (await admin.SendAsync(selfDelete)).StatusCode);
+
+        using var member = fixture.CreateClient();
+        await Login(member, "ami@example.com", fixture.Password);
+        var louisa = (await admin.GetFromJsonAsync<ManagedUserResponse[]>("/api/admin/users/"))!
+            .Single(x => x.Username == "louisa");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await member.GetAsync($"/api/admin/gifts/{louisa.Id}/1")).StatusCode);
+        var saveGift = new HttpRequestMessage(HttpMethod.Put, $"/api/admin/gifts/{louisa.Id}/1")
+        {
+            Content = JsonContent.Create(new
+            {
+                content = new
+                {
+                    day = 1, kind = "surprise", title = "Un cadeau préparé par l’administration",
+                    text = "Un petit mot à découvrir.", sticker = "sourire", reviewed = true, blocks = (object?)null
+                },
+                publish = true
+            })
+        };
+        saveGift.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        var savedGift = await admin.SendAsync(saveGift);
+        Assert.Equal(HttpStatusCode.OK, savedGift.StatusCode);
+        Assert.True((await savedGift.Content.ReadFromJsonAsync<PreviewEntryResponse>())!.IsPublished);
+
+        var update = new HttpRequestMessage(HttpMethod.Put, $"/api/admin/users/{user.Id}")
+        {
+            Content = JsonContent.Create(new { email = "nouvelle@example.com", displayName = "Nouvel ami" })
+        };
+        update.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        Assert.Equal(HttpStatusCode.OK, (await admin.SendAsync(update)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await member.GetAsync("/api/auth/me")).StatusCode);
+        await Login(member, "nouvelle@example.com", fixture.Password);
+
+        var forgot = new HttpRequestMessage(HttpMethod.Post, "/api/auth/forgot-password")
+        {
+            Content = JsonContent.Create(new { email = "nouvelle@example.com" })
+        };
+        forgot.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        Assert.Equal(HttpStatusCode.Accepted, (await admin.SendAsync(forgot)).StatusCode);
+        var link = new Uri(fixture.Email.LastLink!);
+        var token = Uri.UnescapeDataString(link.Query["?resetToken=".Length..]);
+        var reset = new HttpRequestMessage(HttpMethod.Post, "/api/auth/reset-password")
+        {
+            Content = JsonContent.Create(new { token, password = "a-new-and-secure-password" })
+        };
+        reset.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.SendAsync(reset)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await member.GetAsync("/api/auth/me")).StatusCode);
+        await Login(member, "nouvelle@example.com", "a-new-and-secure-password");
+        Assert.Equal(HttpStatusCode.OK, (await member.GetAsync("/api/auth/me")).StatusCode);
+
+        var saveOwnGift = new HttpRequestMessage(HttpMethod.Put, $"/api/admin/gifts/{user.Id}/1")
+        {
+            Content = JsonContent.Create(new
+            {
+                content = new
+                {
+                    day = 1, kind = "surprise", title = "À supprimer avec le compte",
+                    text = "Ce cadeau ne doit pas rester orphelin.", sticker = "sourire", reviewed = true, blocks = (object?)null
+                },
+                publish = true
+            })
+        };
+        saveOwnGift.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        Assert.Equal(HttpStatusCode.OK, (await admin.SendAsync(saveOwnGift)).StatusCode);
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AdventDbContext>();
+            Assert.Contains(await db.CalendarEntries.ToArrayAsync(), entry => entry.UserId == user.Id);
+        }
+
+        var disable = new HttpRequestMessage(HttpMethod.Put, $"/api/admin/users/{user.Id}/active")
+        {
+            Content = JsonContent.Create(new { isActive = false })
+        };
+        disable.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.SendAsync(disable)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await member.GetAsync("/api/auth/me")).StatusCode);
+
+        var delete = new HttpRequestMessage(HttpMethod.Delete, $"/api/admin/users/{user.Id}");
+        delete.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.SendAsync(delete)).StatusCode);
+        Assert.DoesNotContain((await admin.GetFromJsonAsync<ManagedUserResponse[]>("/api/admin/users/"))!,
+            managed => managed.Id == user.Id);
+        using (var scope = fixture.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AdventDbContext>();
+            Assert.DoesNotContain(await db.CalendarEntries.ToArrayAsync(), entry => entry.UserId == user.Id);
+            Assert.Null(await db.Users.FindAsync(user.Id));
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "Integration")]
+    public async Task DevelopmentStartupCreatesDefaultAdminWhenNoUsersExist()
+    {
+        await using var fixture = new SqlFixture();
+        await fixture.PublishSchema();
+        await fixture.ClearUsers();
+
+        using var admin = fixture.CreateClient();
+        await Login(admin, "admin@localhost.test", "Advent2026!Local");
+        using var scope = fixture.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AdventDbContext>();
+        var user = await db.Users.SingleAsync();
+        Assert.Equal("admin@localhost.test", user.Email);
+        Assert.True(user.IsAdmin);
+        Assert.True(user.IsActive);
     }
 
     internal static async Task<string> Csrf(HttpClient client) =>
@@ -153,10 +297,20 @@ public sealed class SqlApiTests
 
     internal static async Task<string> Login(HttpClient client, string username, string password)
     {
-        var result = await TryLogin(client, username, password);
+        var result = username.Contains('@')
+            ? await TryLoginEmail(client, username, password)
+            : await TryLogin(client, username, password);
         Assert.Equal(HttpStatusCode.OK, result.StatusCode);
-        Assert.Equal(username, (await result.Content.ReadFromJsonAsync<AccountResponse>())!.Username);
+        var account = (await result.Content.ReadFromJsonAsync<AccountResponse>())!;
+        if (!username.Contains('@')) Assert.Equal(username, account.Username);
         return result.Headers.GetValues("Set-Cookie").Single(value => value.StartsWith("advent.session="));
+    }
+
+    private static async Task<HttpResponseMessage> TryLoginEmail(HttpClient client, string email, string password)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login") { Content = JsonContent.Create(new { email, password }) };
+        request.Headers.Add("X-CSRF-Token", await Csrf(client));
+        return await client.SendAsync(request);
     }
 
     internal static async Task<HttpResponseMessage> Open(HttpClient client, int day)
@@ -173,12 +327,26 @@ internal sealed class MutableClock : TimeProvider
     public override DateTimeOffset GetUtcNow() => Now;
 }
 
+internal sealed class FakeEmailSender : IEmailSender
+{
+    public bool IsConfigured => true;
+    public string PasswordResetBaseUrl => "https://example.test/";
+    public string? LastLink { get; private set; }
+
+    public Task SendPasswordReset(string email, string displayName, string link, CancellationToken ct)
+    {
+        LastLink = link;
+        return Task.CompletedTask;
+    }
+}
+
 internal sealed class SqlFixture : WebApplicationFactory<Program>
 {
     private readonly string databaseName = "AdventTest_" + Guid.NewGuid().ToString("N");
     private readonly string server = Environment.GetEnvironmentVariable("ADVENT_TEST_SQL")
         ?? @"Server=.\SQLEXPRESS;Integrated Security=True;Encrypt=True;TrustServerCertificate=True";
     public string Password { get; } = Guid.NewGuid().ToString("N") + "!aA7";
+    public FakeEmailSender Email { get; } = new();
     public MutableClock Clock { get; } = new();
     private string ConnectionString => new SqlConnectionStringBuilder(server) { InitialCatalog = databaseName }.ConnectionString;
 
@@ -191,6 +359,8 @@ internal sealed class SqlFixture : WebApplicationFactory<Program>
         {
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Clock);
+            services.RemoveAll<IEmailSender>();
+            services.AddSingleton<IEmailSender>(Email);
         });
     }
 
@@ -227,6 +397,15 @@ internal sealed class SqlFixture : WebApplicationFactory<Program>
         var stderr = process.StandardError.ReadToEndAsync();
         await process.WaitForExitAsync();
         Assert.True(process.ExitCode == 0, await stdout + await stderr);
+    }
+
+    public async Task ClearUsers()
+    {
+        await using var connection = new SqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM [dbo].[Users]";
+        await command.ExecuteNonQueryAsync();
     }
 
     public override async ValueTask DisposeAsync()

@@ -12,6 +12,7 @@ public sealed class InfrastructureModule(string connectionString) : Module
             .UseSqlServer(connectionString).Options).SingleInstance();
         builder.RegisterType<AdventDbContext>().AsSelf().As<IUnitOfWork>().InstancePerLifetimeScope();
         builder.RegisterType<UserRepository>().As<IUserRepository>().InstancePerLifetimeScope();
+        builder.RegisterType<PasswordResetRepository>().As<IPasswordResetRepository>().InstancePerLifetimeScope();
         builder.RegisterType<CalendarRepository>().As<ICalendarRepository>().InstancePerLifetimeScope();
         builder.RegisterType<MediaRepository>().As<IMediaRepository>().InstancePerLifetimeScope();
         builder.RegisterType<SessionRepository>().As<ISessionRepository>().InstancePerLifetimeScope();

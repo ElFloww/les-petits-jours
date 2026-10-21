@@ -8,6 +8,7 @@ using Advent.Application;
 using Advent.Infrastructure;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
+using MediatR;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
@@ -23,6 +24,7 @@ builder.Host.ConfigureContainer<ContainerBuilder>(container =>
     container.RegisterModule(new InfrastructureModule(connection));
 });
 builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddSingleton(new PreviewSettings(
     builder.Environment.IsDevelopment() && builder.Configuration.GetValue<bool>("Preview:Enabled")));
 builder.Services.AddAuthentication(SessionAuthentication.SchemeName)
@@ -56,8 +58,16 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0
             }));
+    options.AddPolicy("password-reset", context =>
+        RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0
+            }));
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
-        context.Request.Path == "/api/auth/login"
+        context.Request.Path == "/api/auth/login" ||
+        context.Request.Path == "/api/auth/forgot-password" ||
+        context.Request.Path == "/api/auth/reset-password"
             ? RateLimitPartition.GetFixedWindowLimiter("login-global", _ => new FixedWindowRateLimiterOptions
                 { PermitLimit = 30, Window = TimeSpan.FromMinutes(15), QueueLimit = 0 })
             : RateLimitPartition.GetNoLimiter("other"));
@@ -88,6 +98,16 @@ if (args.FirstOrDefault() == "admin")
     Environment.ExitCode = await AdminCli.Run(app.Services, args.Skip(1).ToArray(), app.Lifetime.ApplicationStopping);
     return;
 }
+if (app.Environment.IsDevelopment())
+{
+    var email = builder.Configuration["InitialAdmin:Email"]
+        ?? throw new InvalidOperationException("Configurez InitialAdmin:Email pour le démarrage local.");
+    var password = builder.Configuration["InitialAdmin:Password"]
+        ?? throw new InvalidOperationException("Configurez InitialAdmin:Password pour le démarrage local.");
+    await using var scope = app.Services.CreateAsyncScope();
+    await scope.ServiceProvider.GetRequiredService<ISender>()
+        .Send(new InitializeDefaultAdminCommand(email, password), app.Lifetime.ApplicationStopping);
+}
 app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -95,12 +115,14 @@ app.Use(async (context, next) =>
 {
     context.Response.Headers.CacheControl = "no-store";
     context.Response.Headers.XContentTypeOptions = "nosniff";
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
     await next(context);
 });
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapAuthentication();
+app.MapAdministration();
 app.MapCalendar();
 app.MapPreview();
 app.MapHealthChecks("/health");

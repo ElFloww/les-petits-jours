@@ -17,12 +17,24 @@ public static class AdminCli
             switch (args)
             {
                 case ["provision-db"]:
+                case ["provision-db", "--without-default-admin"]:
                     var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
                     await DatabaseProvisioner.Provision(
                         configuration.GetConnectionString("Advent")!,
                         Environment.GetEnvironmentVariable("APP_DB_PASSWORD")
                             ?? throw new AppException(400, "Définissez APP_DB_PASSWORD (24 à 128 caractères)."), ct);
                     Console.WriteLine("Login SQL advent_app configuré, permissions applicatives uniquement.");
+                    if (args.Length == 1)
+                    {
+                        await sender.Send(new InitializeDefaultAdminCommand(
+                            Environment.GetEnvironmentVariable("INITIAL_ADMIN_EMAIL"),
+                            Environment.GetEnvironmentVariable("INITIAL_ADMIN_PASSWORD")), ct);
+                        Console.WriteLine("Compte administrateur initial configuré ou déjà renseigné.");
+                    }
+                    else
+                    {
+                        Console.WriteLine("Initialisation de l’administrateur ignorée.");
+                    }
                     break;
                 case ["import", var path]:
                 case ["import", var path2, "--publish"]:
@@ -49,8 +61,12 @@ public static class AdminCli
                     await sender.Send(new DisableAccountCommand(username), ct);
                     Console.WriteLine("Compte désactivé et sessions révoquées.");
                     break;
+                case ["promote-admin", var username, var email]:
+                    await sender.Send(new PromoteAdminCommand(username, email), ct);
+                    Console.WriteLine("Compte promu administrateur. Définissez ensuite son mot de passe avec admin set-password.");
+                    break;
                 default:
-                    Console.Error.WriteLine("admin import <fichier> [--publish] | admin set-password <identifiant> | admin disable <identifiant> | admin provision-db");
+                    Console.Error.WriteLine("admin import <fichier> [--publish] | admin set-password <identifiant> | admin disable <identifiant> | admin promote-admin <identifiant> <email> | admin provision-db [--without-default-admin]");
                     return 2;
             }
             return 0;

@@ -6,10 +6,16 @@ import { api, ApiError, type Calendar } from './api';
 
 vi.mock('./api', async importOriginal => {
   const original = await importOriginal<typeof import('./api')>();
-  return { ...original, api: { me: vi.fn(), login: vi.fn(), logout: vi.fn(), calendar: vi.fn(), open: vi.fn(), preview: vi.fn(), saveGift: vi.fn(), uploadMedia: vi.fn() } };
+  return { ...original, api: {
+    me: vi.fn(), login: vi.fn(), logout: vi.fn(), calendar: vi.fn(), open: vi.fn(), preview: vi.fn(),
+    saveGift: vi.fn(), uploadMedia: vi.fn(), forgotPassword: vi.fn(), resetPassword: vi.fn(),
+    managedUsers: vi.fn(), createManagedUser: vi.fn(), updateManagedUser: vi.fn(),
+    setManagedUserPassword: vi.fn(), setManagedUserActive: vi.fn(), deleteManagedUser: vi.fn(),
+    adminGift: vi.fn(), saveAdminGift: vi.fn(), uploadAdminGiftMedia: vi.fn(),
+  } };
 });
 
-const account = { id: 'a1', username: 'louisa', displayName: 'Louisa' };
+const account = { id: 'a1', username: 'louisa', email: 'louisa@example.com', displayName: 'Louisa', isAdmin: false };
 const calendar: Calendar = {
   year: 2026, today: '2026-12-10', decoration: 'Une phrase stable.',
   days: Array.from({ length: 24 }, (_, index) => ({
@@ -26,6 +32,13 @@ beforeEach(() => {
   vi.mocked(api.preview).mockReset();
   vi.mocked(api.saveGift).mockReset();
   vi.mocked(api.uploadMedia).mockReset();
+  vi.mocked(api.forgotPassword).mockReset();
+  vi.mocked(api.resetPassword).mockReset();
+  vi.mocked(api.managedUsers).mockReset();
+  vi.mocked(api.deleteManagedUser).mockReset();
+  vi.mocked(api.adminGift).mockReset();
+  vi.mocked(api.saveAdminGift).mockReset();
+  vi.mocked(api.uploadAdminGiftMedia).mockReset();
   HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   HTMLDialogElement.prototype.close = function () { this.open = false; };
 });
@@ -124,7 +137,7 @@ describe('Private calendar', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Importez les brouillons');
     vi.mocked(api.preview).mockRejectedValue(new ApiError(401, 'Session expirée.'));
     await userEvent.click(screen.getByRole('button', { name: /Réessayer/ }));
-    expect(await screen.findByLabelText('Votre identifiant')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Votre adresse email')).toBeInTheDocument();
     expect(api.open).not.toHaveBeenCalled();
   });
 
@@ -133,14 +146,99 @@ describe('Private calendar', () => {
     vi.mocked(api.login).mockResolvedValue(account);
     render(<App />);
     const user = userEvent.setup();
-    await user.type(await screen.findByLabelText('Votre identifiant'), 'louisa');
+    await user.type(await screen.findByLabelText('Votre adresse email'), 'louisa@example.com');
     await user.type(screen.getByLabelText('Votre mot de passe'), 'a-private-password');
     await user.click(screen.getByRole('button', { name: /Découvrir mon calendrier/ }));
-    expect(api.login).toHaveBeenCalledWith('louisa', 'a-private-password');
+    expect(api.login).toHaveBeenCalledWith('louisa@example.com', 'a-private-password');
     await screen.findByRole('button', { name: '1 décembre — À découvrir' });
     expect(screen.getAllByRole('button', { name: /décembre —/ })).toHaveLength(24);
     expect(screen.getByRole('button', { name: '11 décembre — À patienter' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '10 décembre — À découvrir' })).toBeEnabled();
+  });
+
+  it('requests a reset link without revealing whether the email exists', async () => {
+    vi.mocked(api.me).mockRejectedValue(new ApiError(401, 'Unauthorized'));
+    vi.mocked(api.forgotPassword).mockResolvedValue({ message: 'ok' });
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Mot de passe oublié ?' }));
+    await userEvent.type(screen.getByLabelText('Votre adresse email'), 'louisa@example.com');
+    await userEvent.click(screen.getByRole('button', { name: /Envoyer le lien/ }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Si cette adresse correspond à un compte actif');
+    expect(api.forgotPassword).toHaveBeenCalledWith('louisa@example.com');
+  });
+
+  it('sets a new password from a reset link', async () => {
+    window.history.pushState({}, '', '/?resetToken=abcdef');
+    vi.mocked(api.me).mockRejectedValue(new ApiError(401, 'Unauthorized'));
+    vi.mocked(api.resetPassword).mockResolvedValue();
+    render(<App />);
+    await userEvent.type(screen.getByLabelText('Nouveau mot de passe'), 'a-long-private-password');
+    await userEvent.type(screen.getByLabelText('Confirmer le mot de passe'), 'a-long-private-password');
+    await userEvent.click(screen.getByRole('button', { name: /Enregistrer le mot de passe/ }));
+    expect(api.resetPassword).toHaveBeenCalledWith('abcdef', 'a-long-private-password');
+    expect(await screen.findByRole('status')).toHaveTextContent('Votre mot de passe a été modifié');
+    expect(window.location.search).toBe('');
+  });
+
+  it('exposes account management only to admins', async () => {
+    vi.mocked(api.me).mockResolvedValue({ ...account, isAdmin: true });
+    vi.mocked(api.managedUsers).mockResolvedValue([{
+      id: 'user1', username: 'user-1', email: 'ami@example.com', displayName: 'Ami', isActive: true, isAdmin: false,
+    }]);
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Administration' }));
+    expect(await screen.findByRole('heading', { name: 'Gestion des comptes' })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('ami@example.com')).toBeInTheDocument();
+    expect(api.managedUsers).toHaveBeenCalled();
+  });
+
+  it('requires confirmation before deleting an account', async () => {
+    vi.mocked(api.me).mockResolvedValue({ ...account, isAdmin: true });
+    vi.mocked(api.managedUsers).mockResolvedValue([{
+      id: 'user1', username: 'ami', email: 'ami@example.com', displayName: 'Ami', isActive: true, isAdmin: false,
+    }]);
+    vi.mocked(api.deleteManagedUser).mockResolvedValue();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Administration' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Supprimer définitivement' }));
+    expect(api.deleteManagedUser).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Supprimer définitivement' }));
+
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(confirm).toHaveBeenLastCalledWith(expect.stringContaining('Ses cadeaux, médias et historique'));
+    expect(api.deleteManagedUser).toHaveBeenCalledWith('user1');
+    confirm.mockRestore();
+  });
+
+  it('lets admins choose a person and edit one of their gifts', async () => {
+    vi.mocked(api.me).mockResolvedValue({ ...account, isAdmin: true });
+    vi.mocked(api.managedUsers).mockResolvedValue([
+      { id: 'user1', username: 'louisa', email: 'louisa@example.com', displayName: 'Louisa', isActive: true, isAdmin: false },
+      { id: 'user2', username: 'orleane', email: 'orleane@example.com', displayName: 'Orléane', isActive: true, isAdmin: false },
+    ]);
+    const gift = {
+      day: 1, kind: 'surprise' as const, title: 'Un cadeau', text: 'Un message à personnaliser.',
+      sticker: 'sourire', isPublished: false,
+    };
+    vi.mocked(api.adminGift).mockResolvedValue(gift);
+    vi.mocked(api.saveAdminGift).mockResolvedValue({ ...gift, title: 'Un cadeau modifié', isPublished: true });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Administration' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cadeaux' }));
+    await userEvent.selectOptions(await screen.findByLabelText('Personne'), 'user2');
+    await userEvent.click(await screen.findByRole('button', { name: 'Modifier ce cadeau' }));
+    await userEvent.clear(screen.getByLabelText('Titre du cadeau'));
+    await userEvent.type(screen.getByLabelText('Titre du cadeau'), 'Un cadeau modifié');
+    await userEvent.click(screen.getByRole('checkbox', { name: /J’ai relu ce cadeau/ }));
+    await userEvent.click(screen.getByRole('button', { name: /Publier ce cadeau/ }));
+
+    expect(await screen.findByText(/Cadeau publié/)).toBeInTheDocument();
+    expect(api.saveAdminGift).toHaveBeenCalledWith('user2', expect.objectContaining({
+      day: 1, title: 'Un cadeau modifié', reviewed: true,
+    }), true);
   });
 
   it('opens the server content, marks it opened and never navigates into future days', async () => {
@@ -182,10 +280,10 @@ describe('Private calendar', () => {
     vi.mocked(api.me).mockRejectedValue(new ApiError(0, 'Connexion impossible.'));
     render(<App />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Connexion impossible');
-    expect(screen.queryByLabelText('Votre identifiant')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Votre adresse email')).not.toBeInTheDocument();
     vi.mocked(api.me).mockRejectedValue(new ApiError(401, 'Unauthorized'));
     await userEvent.click(screen.getByRole('button', { name: /Réessayer/ }));
-    expect(await screen.findByLabelText('Votre identifiant')).toBeInTheDocument();
+    expect(await screen.findByLabelText('Votre adresse email')).toBeInTheDocument();
   });
 
   it('does not pretend logout succeeded when the network fails', async () => {

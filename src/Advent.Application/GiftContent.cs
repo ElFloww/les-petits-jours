@@ -68,11 +68,13 @@ public sealed class SaveGiftValidator : AbstractValidator<SaveGiftCommand>
     }
 }
 
-public sealed class SaveGiftHandler(ICalendarRepository entries, IMediaRepository media, IUnitOfWork uow)
+public sealed class SaveGiftHandler(IUserRepository users, ICalendarRepository entries, IMediaRepository media, IUnitOfWork uow)
     : IRequestHandler<SaveGiftCommand, PreviewEntryResponse>
 {
     public async Task<PreviewEntryResponse> Handle(SaveGiftCommand request, CancellationToken ct)
     {
+        if (await users.FindById(request.UserId, ct) is null)
+            throw new AppException(404, "Compte introuvable.");
         var content = request.Request.Content;
         await GiftContent.ValidateMedia(media, request.UserId, request.Day, content.Blocks, ct);
         var existing = await entries.Find(request.UserId, request.Day, ct);

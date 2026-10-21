@@ -1,12 +1,17 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { api, ApiError, errorMessage, type ContentBlock, type Entry, type GiftDraft, type PreviewEntry } from './api';
+import { ApiError, errorMessage, type ContentBlock, type Entry, type GiftDraft, type PreviewEntry } from './api';
 import { GiftContent } from './GiftContent';
 
 const blockNames = { text: 'Texte', quote: 'Citation', image: 'Image', video: 'Vidéo', audio: 'Audio' };
 const accepts = { image: 'image/jpeg,image/png,image/webp,image/gif', video: 'video/mp4,video/webm', audio: 'audio/mpeg,audio/wav,audio/ogg' };
 
-export function GiftEditor({ day, initial, decoration, onSaved, onDirtyChange, onBusyChange, onExpired, onCancel }: {
+export function GiftEditor({
+  day, initial, decoration, mediaBasePath, onSave, onUpload, onSaved, onDirtyChange, onBusyChange, onExpired, onCancel,
+}: {
   day: number; initial: Entry | null; decoration: string; onSaved: (entry: PreviewEntry) => void;
+  mediaBasePath?: string;
+  onSave: (content: GiftDraft, publish: boolean) => Promise<PreviewEntry>;
+  onUpload: (file: File) => Promise<{ mediaId: string; type: 'image' | 'video' | 'audio' }>;
   onDirtyChange: (dirty: boolean) => void; onBusyChange: (busy: boolean) => void; onExpired: () => void; onCancel: () => void;
 }) {
   const [draft, setDraft] = useState<GiftDraft>(() => ({
@@ -61,7 +66,7 @@ export function GiftEditor({ day, initial, decoration, onSaved, onDirtyChange, o
     setBusy(true);
     setNotice('Import du média en cours…');
     try {
-      const media = await api.uploadMedia(day, file);
+      const media = await onUpload(file);
       updateBlock(index, { type: block.type, mediaId: media.mediaId, caption: block.caption || file.name.replace(/\.[^.]+$/, '') });
       setNotice('Média importé. Enregistre le brouillon pour le conserver dans ce cadeau.');
     } catch (cause) { setNotice(''); failure(cause); }
@@ -86,7 +91,7 @@ export function GiftEditor({ day, initial, decoration, onSaved, onDirtyChange, o
     }
     setBusy(true);
     try {
-      const result = await api.saveGift(draft, publish);
+      const result = await onSave(draft, publish);
       onSaved(result);
       setDirty(false);
       setNotice(publish ? 'Cadeau publié ! Il sera accessible à sa date de décembre.'
@@ -105,7 +110,7 @@ export function GiftEditor({ day, initial, decoration, onSaved, onDirtyChange, o
       <button type="button" aria-pressed={!previewing} onClick={() => setPreviewing(false)}>Composer</button>
       <button type="button" aria-pressed={previewing} onClick={() => setPreviewing(true)}>Voir le rendu</button>
     </div>
-    {previewing && <GiftContent entry={draft} preview decoration={decoration} />}
+    {previewing && <GiftContent entry={draft} preview decoration={decoration} mediaBasePath={mediaBasePath} />}
     <form onSubmit={event => void save(event)} hidden={previewing}>
       <fieldset disabled={busy}>
         <label htmlFor="gift-title">Titre du cadeau</label>

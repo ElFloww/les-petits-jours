@@ -1,7 +1,17 @@
 export interface Account {
   id: string;
   username: string;
+  email: string | null;
   displayName: string;
+  isAdmin: boolean;
+}
+export interface ManagedUser {
+  id: string;
+  username: string;
+  email: string | null;
+  displayName: string;
+  isActive: boolean;
+  isAdmin: boolean;
 }
 export interface Day {
   day: number;
@@ -79,15 +89,56 @@ async function post<T>(path: string, body?: unknown, signal?: AbortSignal): Prom
   });
 }
 
+async function mutate<T>(path: string, method: string, body: unknown): Promise<T> {
+  if (!csrf) csrf = (await request<{ token: string }>('/auth/csrf')).token;
+  return request<T>(path, {
+    method, headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+    body: JSON.stringify(body),
+  });
+}
+
+async function mutateWithoutBody<T>(path: string, method: string): Promise<T> {
+  if (!csrf) csrf = (await request<{ token: string }>('/auth/csrf')).token;
+  return request<T>(path, { method, headers: { 'X-CSRF-Token': csrf } });
+}
+
+async function saveGiftAt(path: string, content: GiftDraft, publish: boolean): Promise<PreviewEntry> {
+  if (!csrf) csrf = (await request<{ token: string }>('/auth/csrf')).token;
+  const result = await request<{ content: Entry; isPublished: boolean }>(path, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+    body: JSON.stringify({ content, publish }),
+  });
+  return { ...result.content, isPublished: result.isPublished };
+}
+
+async function uploadMediaAt(path: string, file: File): Promise<{ mediaId: string; type: 'image' | 'video' | 'audio' }> {
+  if (!csrf) csrf = (await request<{ token: string }>('/auth/csrf')).token;
+  return request(path, {
+    method: 'POST', headers: { 'Content-Type': file.type, 'X-CSRF-Token': csrf }, body: file,
+  });
+}
+
 export const api = {
   me: () => request<Account>('/auth/me'),
   calendar: () => request<Calendar>('/calendar/'),
-  async login(username: string, password: string) {
+  async login(email: string, password: string) {
     csrf = undefined;
-    const account = await post<Account>('/auth/login', { username, password });
+    const account = await post<Account>('/auth/login', { email, password });
     csrf = undefined;
     return account;
   },
+  forgotPassword: (email: string) => post<{ message: string }>('/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string) => post<void>('/auth/reset-password', { token, password }),
+  managedUsers: () => request<ManagedUser[]>('/admin/users/'),
+  createManagedUser: (user: { email: string; displayName: string; password: string }) =>
+    mutate<ManagedUser>('/admin/users/', 'POST', user),
+  updateManagedUser: (user: Pick<ManagedUser, 'id' | 'email' | 'displayName'>) =>
+    mutate<ManagedUser>(`/admin/users/${user.id}`, 'PUT', { email: user.email, displayName: user.displayName }),
+  setManagedUserPassword: (id: string, password: string) =>
+    mutate<void>(`/admin/users/${id}/password`, 'PUT', { password }),
+  setManagedUserActive: (id: string, isActive: boolean) =>
+    mutate<void>(`/admin/users/${id}/active`, 'PUT', { isActive }),
+  deleteManagedUser: (id: string) => mutateWithoutBody<void>(`/admin/users/${id}`, 'DELETE'),
   async logout() {
     await post<void>('/auth/logout');
     csrf = undefined;
@@ -97,20 +148,18 @@ export const api = {
     const result = await request<{ content: Entry; isPublished: boolean }>(`/preview/calendar/${day}`, { signal });
     return { ...result.content, isPublished: result.isPublished };
   },
-  async saveGift(content: GiftDraft, publish: boolean): Promise<PreviewEntry> {
-    if (!csrf) csrf = (await request<{ token: string }>('/auth/csrf')).token;
-    const result = await request<{ content: Entry; isPublished: boolean }>(`/preview/calendar/${content.day}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
-      body: JSON.stringify({ content, publish }),
-    });
+  async adminGift(userId: string, day: number, signal?: AbortSignal): Promise<PreviewEntry> {
+    const result = await request<{ content: Entry; isPublished: boolean }>(`/admin/gifts/${userId}/${day}`, { signal });
     return { ...result.content, isPublished: result.isPublished };
   },
-  async uploadMedia(day: number, file: File): Promise<{ mediaId: string; type: 'image' | 'video' | 'audio' }> {
-    if (!csrf) csrf = (await request<{ token: string }>('/auth/csrf')).token;
-    return request(`/preview/calendar/${day}/media`, {
-      method: 'POST', headers: { 'Content-Type': file.type, 'X-CSRF-Token': csrf }, body: file,
-    });
-  },
+  saveGift: (content: GiftDraft, publish: boolean) =>
+    saveGiftAt(`/preview/calendar/${content.day}`, content, publish),
+  saveAdminGift: (userId: string, content: GiftDraft, publish: boolean) =>
+    saveGiftAt(`/admin/gifts/${userId}/${content.day}`, content, publish),
+  uploadMedia: (day: number, file: File) =>
+    uploadMediaAt(`/preview/calendar/${day}/media`, file),
+  uploadAdminGiftMedia: (userId: string, day: number, file: File) =>
+    uploadMediaAt(`/admin/gifts/${userId}/${day}/media`, file),
 };
 
 export function errorMessage(error: unknown): string {

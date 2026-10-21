@@ -27,6 +27,7 @@ public sealed class SessionAuthentication(
         var identity = new ClaimsIdentity([
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.DisplayName),
+            new Claim("admin", user.IsAdmin ? "true" : "false"),
             new Claim("session", hash)
         ], SchemeName);
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName));

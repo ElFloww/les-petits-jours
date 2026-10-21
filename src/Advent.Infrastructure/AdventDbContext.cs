@@ -7,6 +7,7 @@ namespace Advent.Infrastructure;
 public sealed class AdventDbContext(DbContextOptions<AdventDbContext> options) : DbContext(options), IUnitOfWork
 {
     public DbSet<User> Users => Set<User>();
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<CalendarEntry> CalendarEntries => Set<CalendarEntry>();
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<CalendarMedia> CalendarMedia => Set<CalendarMedia>();
@@ -21,8 +22,19 @@ public sealed class AdventDbContext(DbContextOptions<AdventDbContext> options) :
             entity.Property(x => x.Id).ValueGeneratedNever();
             entity.Property(x => x.Username).HasMaxLength(40);
             entity.HasIndex(x => x.Username).IsUnique();
+            entity.Property(x => x.Email).HasMaxLength(254);
+            entity.HasIndex(x => x.Email).IsUnique().HasFilter("[Email] IS NOT NULL");
             entity.Property(x => x.DisplayName).HasMaxLength(80);
             entity.Property(x => x.PasswordHash).HasMaxLength(512);
+        });
+        model.Entity<PasswordResetToken>(entity =>
+        {
+            entity.ToTable("PasswordResetTokens");
+            entity.HasKey(x => x.TokenHash);
+            entity.Property(x => x.TokenHash).HasMaxLength(64).IsUnicode(false).ValueGeneratedNever();
+            entity.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasIndex(x => x.ExpiresAt);
+            entity.HasIndex(x => x.UserId);
         });
         model.Entity<CalendarEntry>(entity =>
         {
