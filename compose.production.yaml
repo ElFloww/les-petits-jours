@@ -96,7 +96,7 @@ services:
     image: caddy:2-alpine
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:?Configure SITE_DOMAIN}
-    ports: ["80:80", "443:443"]
+    ports: ["8081:80"]
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

@@ -21,11 +21,8 @@ try {
     Compose up -d --wait api frontend proxy
 
     Add-Type -AssemblyName System.Net.Http
-    $handler = New-Object System.Net.Http.HttpClientHandler
-    # Only the disposable localhost Caddy CA is trusted by this smoke client.
-    $handler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
-    $client = New-Object System.Net.Http.HttpClient($handler)
-    $client.BaseAddress = [uri]'https://localhost:18443'
+    $client = New-Object System.Net.Http.HttpClient
+    $client.BaseAddress = [uri]'http://localhost:18080'
     $homepage = $client.GetStringAsync('/').GetAwaiter().GetResult()
     if ($homepage -notmatch 'Les petits jours') { throw 'Wrong frontend served.' }
     $token = ($client.GetStringAsync('/api/auth/csrf').GetAwaiter().GetResult() | ConvertFrom-Json).token
@@ -54,7 +51,7 @@ try {
     Compose up -d --wait api proxy
     $restored = $client.GetStringAsync('/api/calendar/').GetAwaiter().GetResult() | ConvertFrom-Json
     if ($restored.days.Count -ne 24) { throw 'Restored calendar is incomplete.' }
-    Write-Output 'PASS: HTTPS, secure login, CSRF, 24 days, persisted sessions, SQL backup and restore.'
+    Write-Output 'PASS: HTTP proxy, secure login, CSRF, 24 days, persisted sessions, SQL backup and restore.'
     $client.Dispose()
 } finally {
     & docker compose -p $project -f .\compose.production.yaml -f .\tests\compose.smoke.yaml --profile tools down -v --remove-orphans --rmi local

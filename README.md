@@ -330,7 +330,7 @@ ils testent l'interface indépendamment de la date réelle. Les tests HTTP .NET,
 le véritable SQL Server et vérifient les droits, dates, brouillons, sessions, concurrence et relectures.
 
 Un test de production facultatif, `.\tests\smoke-compose.ps1`, construit et démarre un projet Docker
-jetable `advent-smoke-<id>` sur les ports locaux 18080/18443. Il vérifie HTTPS, connexion, cookies,
+jetable `advent-smoke-<id>` sur le port local 18080. Il vérifie HTTP, connexion, cookies,
 anti-CSRF, persistance des sessions et sauvegarde/restauration SQL, puis supprime **uniquement**
 ses conteneurs et volumes. Il nécessite Docker, Node et plusieurs Go de mémoire libre. Il ne faut
 pas le lancer en parallèle d'une pile utilisant déjà le sous-réseau `172.29.216.0/24`.
@@ -372,7 +372,9 @@ L'API n'utilise jamais le compte `sa`. Le secret d'administration sert aux tâch
 `schema` et `provision` sont des services du profil `tools`, sans redémarrage automatique :
 aucune migration ou publication de schéma n'a lieu au redémarrage de l'API.
 
-Le proxy Caddy gère HTTPS automatiquement. Seuls ses ports 80 et 443 sont publiés.
+Le proxy Caddy sert le domaine en HTTP sur le port hôte 8081. Dans NPM, configurer ce port
+comme cible HTTP du proxy host ; NPM conserve la terminaison TLS publique sur les ports 80/443.
+Limiter l'accès au port 8081 aux connexions provenant de NPM avec le pare-feu de l'hôte si possible.
 SQL et l'API ne publient aucun port sur l'hôte ; SQL est sur le réseau interne `data`.
 Le proxy a l'adresse fixe `172.29.216.10`, seule adresse Docker autorisée à transmettre
 les en-têtes d'IP et de protocole. En cas de conflit de sous-réseau, modifier **ensemble**
