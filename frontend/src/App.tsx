@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError, errorMessage, type Account, type Calendar, type Entry, type ManagedUser, type PreviewEntry } from './api';
-import { ChristmasSprig, Lock, NightVillage, Sleigh, SleepyMoon, Star, Village } from './Illustrations';
-import { Confetti, HeaderLights, MiniLights, SkyStars, Snowfall } from './Festive';
+import { ChristmasSprig, Lock, Sleigh, Star, Village } from './Illustrations';
+import { Confetti, HeaderLights, MiniLights, Snowfall } from './Festive';
 import { GiftBox } from './GiftBox';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Close, Refresh, Snowflake, Sparkle } from './Icons';
 import { Tree3D } from './Tree3D';
@@ -357,13 +357,11 @@ function CalendarPage({ account, onAdmin, onExpired, onLogout }: { account: Acco
           : <div className="legend"><span><i className="legend-available" />À découvrir{available > 0 ? ` (${available})` : ''}</span><span><i className="legend-opened" />Déjà ouvert</span><span><Lock />À patienter</span></div>}
       </section>
       <section className="gift-landscape garland-landscape night-landscape" aria-label="Les 24 cadeaux de décembre">
-        <SkyStars />
-        <div className="moon" aria-hidden="true"><SleepyMoon /><span className="moon-z">z</span><span className="moon-z">z</span><span className="moon-z">Z</span></div>
-        <Snowfall layer="back" count={70} />
+        <Snowfall layer="back" count={40} />
         <div className="garland-heading"><span className="eyebrow">UNE GUIRLANDE DE PETITS BONHEURS</span><p>Suis le fil de la magie.</p><Star /></div>
         <GiftGarland days={calendar.days} preview={preview} onSelect={setSelected} />
-        <Snowfall layer="front" count={26} />
-        <NightVillage />
+        <Snowfall layer="front" count={14} />
+        <Village />
       </section>
       <div className="daily-note"><Star /><p>{calendar.decoration}</p><Star /></div>
       {selected !== null && (!preview || calendar.canPreview) && <SurpriseDialog day={selected} calendar={calendar} preview={preview} onSelect={setSelected}
@@ -449,6 +447,7 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
     {editing ? <GiftEditor key={day} day={day} initial={entry} decoration={calendar.decoration}
       onSave={api.saveGift} onUpload={file => api.uploadMedia(day, file)}
       onSaved={value => { setEntry(value); setError(''); }}
+      onPublished={() => { onClose(); requestAnimationFrame(() => document.querySelector('.garland-landscape')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }}
       onDirtyChange={setDirty} onBusyChange={setEditorBusy} onExpired={onExpired}
       onCancel={() => { if (confirmExit()) { setEditing(false); setDirty(false); } }} />
       : <>

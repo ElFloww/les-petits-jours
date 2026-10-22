@@ -7,9 +7,9 @@ const blockNames = { text: 'Texte', quote: 'Citation', image: 'Image', video: 'V
 const accepts = { image: 'image/jpeg,image/png,image/webp,image/gif', video: 'video/mp4,video/webm', audio: 'audio/mpeg,audio/wav,audio/ogg' };
 
 export function GiftEditor({
-  day, initial, decoration, mediaBasePath, onSave, onUpload, onSaved, onDirtyChange, onBusyChange, onExpired, onCancel,
+  day, initial, decoration, mediaBasePath, onSave, onUpload, onSaved, onPublished, onDirtyChange, onBusyChange, onExpired, onCancel,
 }: {
-  day: number; initial: Entry | null; decoration: string; onSaved: (entry: PreviewEntry) => void;
+  day: number; initial: Entry | null; decoration: string; onSaved: (entry: PreviewEntry) => void; onPublished?: (entry: PreviewEntry) => void;
   mediaBasePath?: string;
   onSave: (content: GiftDraft, publish: boolean) => Promise<PreviewEntry>;
   onUpload: (file: File) => Promise<{ mediaId: string; type: 'image' | 'video' | 'audio' }>;
@@ -95,6 +95,7 @@ export function GiftEditor({
       const result = await onSave(draft, publish);
       onSaved(result);
       setDirty(false);
+      if (publish && onPublished) { onPublished(result); return; }
       setNotice(publish ? 'Cadeau publié ! Il sera accessible à sa date de décembre.'
         : 'Brouillon enregistré. La version publiée et les ouvertures restent inchangées.');
     } catch (cause) { failure(cause); }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useRef, type CSSProperties, type ReactNode } from 'react';
 import type { Calendar } from './api';
 import { Lock, Gingerbread, CandyCane, Mitten, SnowmanOrnament, StarOrnament, Robin } from './Illustrations';
 import { GiftBox } from './GiftBox';
@@ -62,20 +62,6 @@ export function GiftGarland({ days, preview, onSelect }: {
   days: Calendar['days']; preview: boolean; onSelect: (day: number) => void;
 }) {
   const trail = useRef<HTMLDivElement>(null);
-  // The boxes turn gently towards the mouse, for a little extra depth.
-  useEffect(() => {
-    const element = trail.current;
-    if (!element) return;
-    let frame = 0;
-    const move = (event: PointerEvent) => {
-      if (event.pointerType !== 'mouse') return;
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => element.style.setProperty('--tilt', ((event.clientX / window.innerWidth) * 2 - 1).toFixed(3)));
-    };
-    window.addEventListener('pointermove', move);
-    return () => { window.removeEventListener('pointermove', move); cancelAnimationFrame(frame); };
-  }, []);
-
   return <div className="gift-trail" ref={trail}>
     {layouts.map(wire => <div key={wire.name} className={`garland-layer garland-${wire.name}`} aria-hidden="true">
       <svg className="garland-wire" viewBox={`0 0 1000 ${wire.height}`} preserveAspectRatio="none" fill="none">

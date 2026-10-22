@@ -147,3 +147,22 @@ h1 em { font-style: italic; }
 
 /* ---------- Garland: a real fir bough painted on a canvas ---------- */
 .garland-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; filter: drop-shadow(0 6px 8px #020c0e88); }
+
+/* ---------- The garland section is part of the page: no card, no night sky ---------- */
+.night-landscape { margin: 0; padding: 30px 0 0; border-radius: 0; overflow: visible; color: inherit; background: none; box-shadow: none; animation: none; }
+.night-landscape::before, .night-landscape::after { content: none; }
+.night-landscape .garland-heading { color: #967535; }
+.night-landscape .garland-heading p { color: #284c3c; text-shadow: none; }
+.night-landscape .garland-heading svg { color: #bd8840; filter: none; animation: none; }
+.night-landscape .gift-tie { background: linear-gradient(90deg, #a17a3c, #e3c27a, #a17a3c); }
+.night-landscape .gift-tie::before { background: #fbf7ec; border-color: #b8923f; box-shadow: none; }
+.night-landscape .gift-caption { color: #627365; background: none; backdrop-filter: none; }
+.night-landscape .caption-available { color: #904330; text-shadow: none; }
+.night-landscape .caption-opened { color: #295a48; }
+.night-landscape > .snow-layer { color: #c9dbd2; opacity: .7; }
+.night-landscape > .village { margin-top: -30px; }
+@media (max-width: 760px) { .night-landscape { margin: 0; border-radius: 0; } }
+.night-landscape .flake { background: #bcd3dc; box-shadow: 0 0 0 1px #ffffffaa; }
+.night-landscape .flake-crystal { background: none; box-shadow: none; color: #a9c7d3; text-shadow: none; }
+.night-landscape { padding-bottom: 70px; }
+.night-landscape > .village { margin-top: 0; }

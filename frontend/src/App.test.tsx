@@ -89,7 +89,7 @@ describe('Private calendar', () => {
     vi.mocked(api.saveGift).mockImplementation(async (content, publish) => ({ ...content, isPublished: publish }));
     await userEvent.click(screen.getByRole('checkbox', { name: /J’ai relu/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Publier ce cadeau' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Cadeau publié');
+    await waitFor(() => expect(screen.queryByLabelText('Titre du cadeau')).not.toBeInTheDocument());
     expect(api.saveGift).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Mon nouveau cadeau', reviewed: true }), true);
     expect(api.open).not.toHaveBeenCalled();
   });
