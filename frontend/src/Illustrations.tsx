@@ -1,3 +1,4 @@
+import { ForestLights, ForestTrees, type TreePlace } from './Forest';
 export function ChristmasSprig({ className = '' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 240 190" fill="none" aria-hidden="true">
     <g stroke="#567857" strokeWidth="2" strokeLinecap="round">
@@ -30,9 +31,7 @@ export function Lock() {
 export function Village() {
   return <svg className="village" viewBox="0 0 1200 220" fill="none" aria-hidden="true" preserveAspectRatio="xMidYMax slice">
     <path d="M0 191c140-35 225 25 370-1s241-34 385-6 338-34 445 0v36H0Z" fill="#e4ebdc" />
-    <g fill="#174b40">
-      <path d="m64 64-29 60h15l-27 52h82l-27-52h15ZM155 118l-19 39h9l-19 37h56l-19-37h9ZM1100 71l-29 60h15l-27 52h82l-27-52h15ZM1004 112l-22 45h11l-22 42h66l-22-42h11Z" />
-    </g>
+    <ForestTrees places={[[64, 198, .27, 0, true], [150, 200, .2, 1], [1100, 198, .27, 1, true], [1004, 200, .21, 0]]} />
     <path d="M209 118h86v80h-86z" fill="#d57c67" /><path d="m195 122 57-58 58 58Z" fill="#174b40" />
     <path d="M255 198v-41h21v41M225 143h16v21h-16" fill="#ffe6aa" />
     <path d="M328 149h62v49h-62z" fill="#efbf63" /><path d="m321 150 38-42 39 42Z" fill="#c17360" />
@@ -42,7 +41,6 @@ export function Village() {
     <path d="M907 152h43v46h-43z" fill="#d57c67" /><path d="m900 153 29-33 29 33Z" fill="#174b40" />
     <path d="M921 178h14v20h-14" fill="#ffe6aa" />
     <path d="M268 77V52h13v39" fill="#d57c67" /><path d="M872 91V68h11v35" fill="#efbf63" />
-    <g fill="#fffaf0"><circle cx="79" cy="94" r="3" /><circle cx="55" cy="143" r="3" /><circle cx="86" cy="159" r="3" /><circle cx="1099" cy="103" r="3" /><circle cx="1080" cy="150" r="3" /><circle cx="1112" cy="168" r="3" /></g>
     <path d="M0 207c280-22 446 6 653-3s355-5 547-1v17H0Z" fill="#faf7ef" />
   </svg>;
 }
@@ -168,21 +166,21 @@ export function Sleigh() {
   </svg>;
 }
 
+const nightTrees: TreePlace[] = [
+  [70, 198, .3, 0, true], [132, 202, .22, 1], [1085, 198, .3, 1, true], [1155, 203, .21, 0],
+  [708, 192, .2, 1], [485, 195, .18, 0], [28, 206, .17, 1], [1190, 207, .16, 0],
+];
+
 export function NightVillage() {
-  return <svg className="night-village" viewBox="0 0 1200 250" fill="none" aria-hidden="true" preserveAspectRatio="xMidYMax slice">
+  const frame = { viewBox: '0 0 1200 250', fill: 'none', preserveAspectRatio: 'xMidYMax slice' } as const;
+  return <div className="night-village" aria-hidden="true">
+    <svg className="night-layer" {...frame}>
     <path d="M0 150c120-40 260-30 380 5s250-50 420-20 300 10 400-15v130H0Z" fill="#163f3c" opacity=".9" />
     <path d="M0 188c150-30 260 18 400-4s260-30 420-6 280-18 380 2v70H0Z" fill="#dde9ee" />
-    <g className="tree-row">
-      {[[60, 70, 1], [120, 105, .75], [1080, 75, 1.05], [1150, 110, .7], [700, 120, .65], [480, 125, .6]].map(([x, y, s], index) =>
-        <g key={index} transform={`translate(${x} ${y}) scale(${s})`}>
-          <path d="M0 0l-34 60h16l-30 52h96l-30-52h16Z" fill="#0d3227" />
-          <path d="M0 0l-14 25q14 6 28 0ZM-22 62q22 9 44 0l-6-10q-16 7-32 0Z" fill="#f2f8fb" opacity=".92" />
-          <rect x="-6" y="112" width="12" height="14" fill="#4a2e22" />
-          {[[-8, 40], [10, 50], [-18, 82], [4, 92], [22, 80], [-30, 100], [30, 102]].map(([lx, ly], light) =>
-            <circle key={light} className={`tree-light tl-${(light + index) % 4}`} cx={lx} cy={ly} r="3.2" />)}
-          <path className="tree-star" d="M0-12l3 6.5 7 .8-5.2 4.8 1.5 7L0 3.6l-6.3 3.5 1.5-7L-10 -4.7l7-.8Z" fill="#ffd772" />
-        </g>)}
-    </g>
+      <ForestTrees places={nightTrees} />
+    </svg>
+    <svg className="night-layer" {...frame}>
+      <ForestLights places={nightTrees} />
     <g className="houses">
       <path d="M190 128h110v80H190z" fill="#7d3d3f" /><path d="m176 132 69-62 69 62Z" fill="#2a3e4a" />
       <path d="m176 132 69-62 69 62-8 2-61-55-61 55Z" fill="#f3f8fb" />
@@ -232,5 +230,6 @@ export function NightVillage() {
       <g fill="#f6a8ae" opacity=".75"><circle cx="-9" cy="18" r="2" /><circle cx="9" cy="18" r="2" /></g>
     </g>
     <path d="M0 222c260-16 450 10 650 2s360-10 550-2v28H0Z" fill="#f5fafc" />
-  </svg>;
+    </svg>
+  </div>;
 }

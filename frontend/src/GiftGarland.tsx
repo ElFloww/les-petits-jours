@@ -2,9 +2,11 @@ import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import type { Calendar } from './api';
 import { Lock, Gingerbread, CandyCane, Mitten, SnowmanOrnament, StarOrnament, Robin } from './Illustrations';
 import { GiftBox } from './GiftBox';
+import { ArrowUpRight, Check } from './Icons';
 import { Bulb } from './Festive';
+import { GarlandCanvas } from './GarlandCanvas';
+import { bezier, segment, type Point } from './garlandMath';
 
-type Point = { x: number; y: number };
 type Vars = CSSProperties & Record<`--${string}`, string>;
 
 const stateLabels = { locked: 'À patienter', available: 'À découvrir', opened: 'Déjà ouvert' };
@@ -23,24 +25,6 @@ const mobilePoints: Point[] = desktopPoints.map((_, index) => ({
 const desktopHeight = 2050;
 const mobileHeight = 5150;
 
-// Each wire segment is a cubic Bézier through the attachment points, so gifts, bulbs and wire stay aligned.
-function segment(points: Point[], index: number): [Point, Point, Point, Point] {
-  const start = points[index - 1];
-  const point = points[index];
-  const before = points[Math.max(0, index - 2)];
-  const after = points[Math.min(points.length - 1, index + 1)];
-  return [start,
-    { x: start.x + (point.x - before.x) / 6, y: start.y + (point.y - before.y) / 6 },
-    { x: point.x - (after.x - start.x) / 6, y: point.y - (after.y - start.y) / 6 },
-    point];
-}
-function bezier([a, b, c, d]: [Point, Point, Point, Point], t: number): Point {
-  const u = 1 - t;
-  return {
-    x: u * u * u * a.x + 3 * u * u * t * b.x + 3 * u * t * t * c.x + t * t * t * d.x,
-    y: u * u * u * a.y + 3 * u * u * t * b.y + 3 * u * t * t * c.y + t * t * t * d.y,
-  };
-}
 function garlandPath(points: Point[]) {
   return points.slice(1).reduce((path, _, offset) => {
     const [, b, c, d] = segment(points, offset + 1);
@@ -70,8 +54,8 @@ function layout(points: Point[]) {
 }
 
 const layouts = [
-  { name: 'desktop', height: desktopHeight, path: garlandPath(desktopPoints), ...layout(desktopPoints) },
-  { name: 'mobile', height: mobileHeight, path: garlandPath(mobilePoints), ...layout(mobilePoints) },
+  { name: 'desktop', height: desktopHeight, points: desktopPoints, path: garlandPath(desktopPoints), ...layout(desktopPoints) },
+  { name: 'mobile', height: mobileHeight, points: mobilePoints, path: garlandPath(mobilePoints), ...layout(mobilePoints) },
 ];
 
 export function GiftGarland({ days, preview, onSelect }: {
@@ -96,12 +80,8 @@ export function GiftGarland({ days, preview, onSelect }: {
     {layouts.map(wire => <div key={wire.name} className={`garland-layer garland-${wire.name}`} aria-hidden="true">
       <svg className="garland-wire" viewBox={`0 0 1000 ${wire.height}`} preserveAspectRatio="none" fill="none">
         <path className="garland-shadow" d={wire.path} />
-        <path className="garland-needles needles-dark" d={wire.path} />
-        <path className="garland-needles needles-mid" d={wire.path} />
-        <path className="garland-needles needles-light" d={wire.path} />
-        <path className="garland-tinsel" d={wire.path} />
-        <path className="garland-tinsel tinsel-spark" d={wire.path} />
       </svg>
+      <GarlandCanvas points={wire.points} height={wire.height} />
       {wire.ornaments.map(({ x, y, kind, index }) => {
         const style: Vars = {
           left: `${x / 10}%`, top: `${y}px`,
@@ -139,7 +119,7 @@ export function GiftGarland({ days, preview, onSelect }: {
             <span className="gift-sway" aria-hidden="true">
               {shown === 'available' && <span className="gift-halo"><i /><i /><i /></span>}
               <GiftBox variant={day % 6} label={String(day).padStart(2, '0')} state={shown} />
-              <span className="gift-badge">{preview ? '↗' : state === 'locked' ? <Lock /> : state === 'opened' ? '✓' : '↗'}</span>
+              <span className="gift-badge">{preview ? <ArrowUpRight /> : state === 'locked' ? <Lock /> : state === 'opened' ? <Check /> : <ArrowUpRight />}</span>
             </span>
           </button>
         </div>

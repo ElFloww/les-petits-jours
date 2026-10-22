@@ -1,3 +1,4 @@
+import { ArrowUpRight } from './Icons';
 import { useEffect, useState } from 'react';
 import { api, ApiError, errorMessage, type ManagedUser, type PreviewEntry } from './api';
 import { GiftEditor } from './GiftEditor';
@@ -95,7 +96,7 @@ export function AdminGiftManager({ users, onExpired }: { users: ManagedUser[]; o
               <p>{missing ? 'Ce jour n’a pas encore de contenu.' : entry.isPublished ? 'Cadeau publié.' : 'Brouillon non publié.'}</p>
             </div>
             <button className="primary-button" onClick={() => setEditing(true)}>
-              {missing ? 'Composer ce cadeau' : 'Modifier ce cadeau'} <span aria-hidden="true">↗</span>
+              {missing ? 'Composer ce cadeau' : 'Modifier ce cadeau'} <ArrowUpRight />
             </button>
           </article> : <GiftEditor key={`${userId}-${day}`} day={day} initial={entry}
             decoration={`Pour ${user.displayName}`} mediaBasePath={`/api/admin/gifts/${userId}`}

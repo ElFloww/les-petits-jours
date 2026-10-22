@@ -3,6 +3,8 @@ import { api, ApiError, errorMessage, type Account, type Calendar, type Entry, t
 import { ChristmasSprig, Lock, NightVillage, Sleigh, SleepyMoon, Star, Village } from './Illustrations';
 import { Confetti, HeaderLights, MiniLights, SkyStars, Snowfall } from './Festive';
 import { GiftBox } from './GiftBox';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Close, Refresh, Snowflake, Sparkle } from './Icons';
+import { Tree3D } from './Tree3D';
 import { GiftGarland } from './GiftGarland';
 import { GiftContent } from './GiftContent';
 import { GiftEditor } from './GiftEditor';
@@ -36,7 +38,7 @@ export default function App() {
     <a className="skip-link" href="#main">Aller au contenu</a>
     <header className="site-header">
       <a className="brand" href="/" aria-label="Les petits jours, accueil">
-        <span className="brand-icon" aria-hidden="true">✳</span>
+        <span className="brand-icon" aria-hidden="true"><Snowflake /></span>
         <span>les petits jours<span className="brand-caption">LE CALENDRIER DES GENS QU’ON AIME</span></span>
       </a>
       <span className="edition"><span className="edition-dot" /> NOËL 2026</span>
@@ -61,9 +63,9 @@ export default function App() {
 
 function LoginPage({ notice, onLogin }: { notice: string; onLogin: (account: Account) => void }) {
   const [decoration] = useState(() => [
-    'un peu de nous, pour vous ↗',
-    'à ouvrir avec le sourire ↗',
-    'les petits bonheurs arrivent ↗',
+    'un peu de nous, pour vous',
+    'à ouvrir avec le sourire',
+    'les petits bonheurs arrivent',
   ][Math.floor(Math.random() * 3)]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -97,14 +99,15 @@ function LoginPage({ notice, onLogin }: { notice: string; onLogin: (account: Acc
       <p>Une blague, un souvenir, un petit défi…<br />En décembre, une surprise vous attend chaque jour.<br />Et celle-ci n’a été préparée que pour vous.</p>
       <div className="login-gifts" aria-hidden="true">
         <Star className="spark spark-one" /><Star className="spark spark-two" />
+        <div className="login-tree"><Tree3D /></div>
         <span className="decor-3d decor-3d-one"><GiftBox variant={0} label="01" state="available" /></span>
         <span className="decor-3d decor-3d-two"><GiftBox variant={3} label="24" state="locked" /></span>
         <span className="decor-3d decor-3d-three"><GiftBox variant={5} label="12" state="opened" /></span>
-        <span className="handwritten">{decoration}</span>
+        <span className="handwritten">{decoration}<ArrowUpRight /></span>
       </div>
     </section>
     <section className="login-card" aria-labelledby="welcome">
-      <span className="card-star" aria-hidden="true">✧</span>
+      <span className="card-star" aria-hidden="true"><Sparkle /></span>
       <span className="eyebrow">VOTRE PETIT COIN DE NOËL</span>
       <h2 id="welcome">{forgot ? 'Un nouveau mot de passe ?' : 'Entrez, il fait bon ici.'}</h2>
       <p>{forgot ? 'Indiquez votre email pour recevoir un lien sécurisé.' : <>Connectez-vous pour retrouver<br />votre calendrier personnel.</>}</p>
@@ -125,11 +128,11 @@ function LoginPage({ notice, onLogin }: { notice: string; onLogin: (account: Acc
           </>}
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="primary-button" type="submit" disabled={busy}>
-            {busy ? 'Un petit instant…' : forgot ? 'Envoyer le lien' : 'Découvrir mon calendrier'}<span aria-hidden="true">↗</span>
+            {busy ? 'Un petit instant…' : forgot ? 'Envoyer le lien' : 'Découvrir mon calendrier'}<ArrowUpRight />
           </button>
         </form>}
       <button className="text-button" type="button" onClick={() => { setForgot(!forgot); setSent(false); setError(''); }}>
-        {forgot ? '← Retour à la connexion' : 'Mot de passe oublié ?'}
+        {forgot ? <><ArrowLeft /> Retour à la connexion</> : 'Mot de passe oublié ?'}
       </button>
       <div className="private-note"><Lock /><span>Un calendrier privé. Juste entre nous.</span></div>
     </section>
@@ -164,7 +167,7 @@ function ResetPasswordPage({ token, onComplete }: { token: string; onComplete: (
         <input id="confirm-password" type="password" autoComplete="new-password" required minLength={14} maxLength={256}
           value={confirmation} onChange={event => setConfirmation(event.target.value)} disabled={busy} />
         {error && <p className="form-error" role="alert">{error}</p>}
-        <button className="primary-button" type="submit" disabled={busy}>{busy ? 'Un petit instant…' : 'Enregistrer le mot de passe'}<span aria-hidden="true">↗</span></button>
+        <button className="primary-button" type="submit" disabled={busy}>{busy ? 'Un petit instant…' : 'Enregistrer le mot de passe'}<ArrowUpRight /></button>
       </form>
     </section>
   </main>;
@@ -224,7 +227,7 @@ function AdminPage({ account, onBack, onExpired }: { account: Account; onBack: (
   return <main id="main" className="admin-page">
     <div className="account-bar">
       <span>Administration de <strong>{account.displayName}</strong></span>
-      <button className="text-button" onClick={onBack}>← Retour au calendrier</button>
+      <button className="text-button" onClick={onBack}><ArrowLeft /> Retour au calendrier</button>
     </div>
     <section className="calendar-intro">
       <span className="eyebrow"><span /> ESPACE PRIVÉ</span>
@@ -245,7 +248,7 @@ function AdminPage({ account, onBack, onExpired }: { account: Account; onBack: (
         <label>Adresse email<input type="email" name="email" required maxLength={254} autoComplete="email" /></label>
         <label>Nom affiché<input name="displayName" required maxLength={80} /></label>
         <label>Mot de passe initial<input type="password" name="password" required minLength={14} maxLength={256} autoComplete="new-password" /></label>
-        <button className="primary-button" type="submit" disabled={busy}>Créer le compte <span aria-hidden="true">↗</span></button>
+        <button className="primary-button" type="submit" disabled={busy}>Créer le compte <ArrowUpRight /></button>
       </form>
     </section>
     <section className="admin-users" aria-label="Comptes existants">
@@ -321,7 +324,7 @@ function CalendarPage({ account, onAdmin, onExpired, onLogout }: { account: Acco
     <div className="account-bar"><span><span className="avatar">{account.displayName[0]}</span>Le calendrier de <strong>{account.displayName}</strong></span>
       <span className="account-actions">
         {account.isAdmin && <button className="text-button" onClick={onAdmin}>Administration</button>}
-        <button className="text-button" onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'Déconnexion…' : 'Se déconnecter'} <span aria-hidden="true">↗</span></button>
+        <button className="text-button" onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'Déconnexion…' : 'Se déconnecter'} <ArrowUpRight /></button>
       </span>
     </div>
     <section className="calendar-intro">
@@ -435,7 +438,7 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
   }} aria-labelledby="surprise-title">
     <MiniLights />
     {entry && !editing && <Confetti key={`${day}-${attempt}`} />}
-    <button className="close-dialog" onClick={close} disabled={editorBusy} aria-label="Fermer la surprise" autoFocus>×</button>
+    <button className="close-dialog" onClick={close} disabled={editorBusy} aria-label="Fermer la surprise" autoFocus><Close /></button>
     <span className="eyebrow">{String(day).padStart(2, '0')} DÉCEMBRE 2026</span>
     {preview && !editing && <div className="preview-note" role="status">
       <strong>Prévisualisation locale — {entry && 'isPublished' in entry ? (entry.isPublished ? 'Publié' : 'Brouillon non publié') : 'Lecture seule'}</strong>
@@ -454,9 +457,9 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
       : !entry ? <div className="center-state" role="status"><Spinner /><p>On défait le ruban…</p></div>
         : <GiftContent key={`${entry.day}-${attempt}`} entry={entry} preview={preview} decoration={calendar.decoration} />}
     <nav className="surprise-navigation" aria-label={preview ? 'Prévisualiser les 24 cadeaux' : 'Parcourir les cadeaux disponibles'}>
-      <button className="text-button" disabled={index <= 0} onClick={() => onSelect(days[index - 1])}>← Précédent</button>
+      <button className="text-button" disabled={index <= 0} onClick={() => onSelect(days[index - 1])}><ArrowLeft /> Précédent</button>
       <span>{day} / 24</span>
-      <button className="text-button" disabled={index < 0 || index >= days.length - 1} onClick={() => onSelect(days[index + 1])}>Suivant →</button>
+      <button className="text-button" disabled={index < 0 || index >= days.length - 1} onClick={() => onSelect(days[index + 1])}>Suivant <ArrowRight /></button>
     </nav>
     </>}
   </dialog>;
@@ -464,5 +467,5 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
 
 function Spinner() { return <span className="spinner" aria-hidden="true" />; }
 function ErrorBox({ message, retry }: { message: string; retry: () => void }) {
-  return <div className="error-box" role="alert"><p>{message}</p><button className="text-button" onClick={retry}>Réessayer ↻</button></div>;
+  return <div className="error-box" role="alert"><p>{message}</p><button className="text-button" onClick={retry}>Réessayer <Refresh /></button></div>;
 }

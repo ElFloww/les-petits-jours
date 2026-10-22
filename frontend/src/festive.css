@@ -101,7 +101,6 @@ progress::-moz-progress-bar { border-radius: 8px; background: repeating-linear-g
   100% { transform: translate3d(calc(var(--drift) * -.3), 108vh, 0) rotate(360deg); }
 }
 
-.night-village { position: relative; display: block; width: 100%; height: 230px; margin-top: -40px; z-index: 1; pointer-events: none; }
 .night-village .window { fill: #ffd77a; animation: window-glow 5s ease-in-out infinite; }
 .night-village .w2 { animation-delay: -1.7s; animation-duration: 6.5s; }
 .night-village .w3 { animation-delay: -3.1s; animation-duration: 4.2s; fill: #ffc56a; }
@@ -332,3 +331,8 @@ progress::-moz-progress-bar { border-radius: 8px; background: repeating-linear-g
 .night-landscape .gift-trail .gift-position { z-index: 3; }
 .night-landscape .gift-trail .gift-position:hover, .night-landscape .gift-trail .gift-position:focus-within { z-index: 5; }
 .login-gifts .handwritten { z-index: 2; text-shadow: 0 0 4px #fbf7ec, 0 0 8px #fbf7ec, 0 0 12px #fbf7ec; }
+
+/* ---------- Night village is now a stack of three layers (hills · forest · houses) ---------- */
+.night-village { position: relative; display: block; width: 100%; height: 230px; margin-top: -40px; z-index: 1; pointer-events: none; }
+.night-layer { position: absolute; inset: 0; width: 100%; height: 100%; display: block; overflow: visible; }
+.night-village .tree-light { stroke: none; }

@@ -113,8 +113,8 @@ describe('Private calendar', () => {
     await userEvent.click(screen.getByRole('button', { name: '24 décembre — Prévisualiser' }));
     await screen.findByRole('heading', { name: 'Brouillon 24' });
     expect(screen.getByRole('status')).toHaveTextContent('Brouillon non publié');
-    expect(screen.getByRole('button', { name: 'Suivant →' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: '← Précédent' }));
+    expect(screen.getByRole('button', { name: 'Suivant' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Précédent' }));
     await screen.findByRole('heading', { name: 'Brouillon 23' });
     vi.mocked(api.preview).mockResolvedValue({
       day: 23, kind: 'surprise', title: 'Texte corrigé', text: 'Correction importée', sticker: 'rire', isPublished: false,
@@ -267,7 +267,7 @@ describe('Private calendar', () => {
     render(<App />);
     await userEvent.click(await screen.findByRole('button', { name: '10 décembre — À découvrir' }));
     expect(await screen.findByRole('heading', { name: 'Pour Louisa' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Suivant →' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Suivant' })).toBeDisabled();
     expect(screen.getByRole('button', { name: '10 décembre — Déjà ouvert' })).toBeEnabled();
     await userEvent.click(screen.getByRole('button', { name: 'Fermer la surprise' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();

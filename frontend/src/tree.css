@@ -1,0 +1,44 @@
+/* ==========================================================================
+   Christmas tree — three stacked SVG layers (back / front / fx) in a 3D stage.
+   Foliage layers never repaint: only the light fx layer animates.
+   ========================================================================== */
+.xtree { --ry: 0; --rx: 0; position: relative; width: 100%; aspect-ratio: 400 / 560; perspective: 1100px; pointer-events: none; }
+.xtree-stage { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateY(calc(var(--ry) * 1deg)) rotateX(calc(var(--rx) * 1deg)); transition: transform .45s cubic-bezier(.2, .8, .3, 1); }
+.xtree-sway { position: absolute; inset: 0; transform-style: preserve-3d; animation: tree-idle 11s ease-in-out infinite alternate; }
+@keyframes tree-idle { from { transform: rotateY(-6deg); } to { transform: rotateY(6deg); } }
+.xtree-layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; transform-origin: 50% 100%; transform: translateZ(var(--z)) scale(var(--s)); will-change: transform; }
+.xtree-layer path { vector-effect: none; }
+.xtree-back { --z: -38px; --s: 1.045; animation: breeze-back 7s ease-in-out infinite alternate; }
+.xtree-front { --z: 0px; --s: 1; animation: breeze 7s ease-in-out infinite alternate; }
+.xtree-fx { --z: 34px; --s: .965; animation: breeze 7s ease-in-out infinite alternate; }
+@keyframes breeze { from { transform: translateZ(var(--z)) scale(var(--s)) skewX(-.7deg); } to { transform: translateZ(var(--z)) scale(var(--s)) skewX(.7deg); } }
+@keyframes breeze-back { from { transform: translateZ(var(--z)) scale(var(--s)) skewX(.5deg); } to { transform: translateZ(var(--z)) scale(var(--s)) skewX(-.5deg); } }
+
+.tree-lamp { animation: tree-lamp var(--dur, 2s) ease-in-out var(--delay, 0s) infinite; }
+@keyframes tree-lamp { 0%, 100% { opacity: 1; } 50% { opacity: .28; } }
+.tree-ornament { animation: tree-swing var(--s, 3.4s) ease-in-out var(--d, 0s) infinite alternate; }
+@keyframes tree-swing { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+.tree-glint { animation: tree-glint 3.4s ease-in-out infinite; }
+@keyframes tree-glint { 0%, 70%, 100% { opacity: .5; } 82% { opacity: 1; } }
+.tree-sparkle { opacity: 0; animation: tree-sparkle 3.2s ease-in-out infinite; }
+@keyframes tree-sparkle { 0%, 100% { opacity: 0; transform: scale(.2) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+.tree-topper-glow { transform-origin: 200px 54px; animation: topper-pulse 2.8s ease-in-out infinite; }
+@keyframes topper-pulse { 50% { opacity: .55; transform: scale(.82); } }
+.tree-rays { transform-origin: 200px 54px; animation: rays-turn 18s linear infinite; }
+@keyframes rays-turn { to { transform: rotate(360deg); } }
+.tree-topper path:not(.x) { filter: drop-shadow(0 0 5px #ffd36acc); }
+.tree-aura { transform-origin: 200px 300px; animation: aura 5s ease-in-out infinite alternate; }
+@keyframes aura { from { opacity: .7; transform: scale(.96); } to { opacity: 1; transform: scale(1.03); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .xtree-sway, .xtree-layer, .tree-lamp, .tree-ornament, .tree-sparkle, .tree-topper-glow, .tree-rays, .tree-aura { animation: none !important; }
+  .tree-sparkle { opacity: .8; }
+}
+
+/* ---------- Realistic 3D tree (WebGL). The SVG tree shows until it is ready. ---------- */
+.rtree { position: relative; width: 100%; aspect-ratio: 400 / 560; touch-action: pan-y; }
+.rtree-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transition: opacity .8s ease; cursor: grab; touch-action: pan-y; pointer-events: auto; }
+.rtree-canvas:active { cursor: grabbing; }
+.rtree-ready .rtree-canvas { opacity: 1; }
+.rtree-fallback { position: absolute; inset: 0; transition: opacity .8s ease; }
+.rtree-ready .rtree-fallback { opacity: 0; }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { ContentBlock, Entry } from './api';
+import { Heart } from './Icons';
 
 const labels = { blague: 'Un sourire pour toi', anecdote: 'La petite découverte', activite: 'À toi de jouer', surprise: 'Une petite attention' };
 
@@ -13,7 +14,7 @@ export function GiftContent({ entry, preview, decoration, mediaBasePath }: {
     {entry.text && <p className="surprise-text">{entry.text}</p>}
     {entry.blocks?.map((block, index) => <ContentPiece key={`${index}-${block.mediaId ?? block.type}`}
       block={block} day={entry.day} preview={preview} mediaBasePath={mediaBasePath} />)}
-    <span className="surprise-signature">{decoration} ♡</span>
+    <span className="surprise-signature">{decoration} <Heart /></span>
   </article>;
 }
 

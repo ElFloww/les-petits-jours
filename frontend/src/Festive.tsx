@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { Snowflake } from './Icons';
 
 type Vars = CSSProperties & Record<`--${string}`, string | number>;
 
@@ -53,7 +54,7 @@ export function Snowfall({ count, layer }: { count: number; layer: 'back' | 'fro
           '--alpha': (layer === 'front' ? .75 : .45 + seeded(seed + 5) * .35).toFixed(2),
         };
         return <i key={index} className={layer === 'front' && index % 4 === 0 ? 'flake flake-crystal' : 'flake'} style={style}>
-          {layer === 'front' && index % 4 === 0 ? '❄' : null}
+          {layer === 'front' && index % 4 === 0 ? <Snowflake /> : null}
         </i>;
       })}
     </div>

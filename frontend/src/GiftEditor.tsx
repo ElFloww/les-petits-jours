@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, Check, Close } from './Icons';
 import { ApiError, errorMessage, type ContentBlock, type Entry, type GiftDraft, type PreviewEntry } from './api';
 import { GiftContent } from './GiftContent';
 
@@ -124,9 +125,9 @@ export function GiftEditor({
           {draft.blocks.map((block, index) => <section className="editor-block" key={index} aria-label={`Bloc ${index + 1} — ${blockNames[block.type]}`}>
             <div className="block-toolbar"><strong><span>{String(index + 1).padStart(2, '0')}</span> {blockNames[block.type]}</strong>
               <div>
-                <button type="button" aria-label={`Monter le bloc ${index + 1}`} disabled={index === 0} onClick={() => moveBlock(index, -1)}>↑</button>
-                <button type="button" aria-label={`Descendre le bloc ${index + 1}`} disabled={index === draft.blocks.length - 1} onClick={() => moveBlock(index, 1)}>↓</button>
-                <button type="button" aria-label={`Retirer le bloc ${index + 1}`} onClick={() => update({ ...draft, blocks: draft.blocks.filter((_, position) => position !== index) })}>×</button>
+                <button type="button" aria-label={`Monter le bloc ${index + 1}`} disabled={index === 0} onClick={() => moveBlock(index, -1)}><ArrowUp /></button>
+                <button type="button" aria-label={`Descendre le bloc ${index + 1}`} disabled={index === draft.blocks.length - 1} onClick={() => moveBlock(index, 1)}><ArrowDown /></button>
+                <button type="button" aria-label={`Retirer le bloc ${index + 1}`} onClick={() => update({ ...draft, blocks: draft.blocks.filter((_, position) => position !== index) })}><Close /></button>
               </div>
             </div>
             {block.type === 'text' || block.type === 'quote' ? <>
@@ -138,7 +139,7 @@ export function GiftEditor({
                   onChange={event => updateBlock(index, { ...block, caption: event.target.value })} /></>}
             </> : <>
               <label className="upload-zone" htmlFor={`block-file-${index}`}>
-                <span aria-hidden="true">↑</span><strong>{block.mediaId ? 'Remplacer le fichier' : `Importer ${block.type === 'image' ? 'une image' : block.type === 'video' ? 'une vidéo' : 'un audio'}`}</strong>
+                <ArrowUp /><strong>{block.mediaId ? 'Remplacer le fichier' : `Importer ${block.type === 'image' ? 'une image' : block.type === 'video' ? 'une vidéo' : 'un audio'}`}</strong>
                 <span>{block.type === 'image' ? 'JPG, PNG, WebP, GIF · 10 Mo max.' : block.type === 'video' ? 'MP4, WebM · 50 Mo max.' : 'MP3, WAV, OGG · 50 Mo max.'}</span>
                 <input id={`block-file-${index}`} type="file" accept={accepts[block.type]} onChange={event => {
                   const file = event.target.files?.[0];
@@ -146,7 +147,7 @@ export function GiftEditor({
                   event.target.value = '';
                 }} />
               </label>
-              {block.mediaId && <p className="media-ready">✓ Fichier importé et privé</p>}
+              {block.mediaId && <p className="media-ready"><Check /> Fichier importé et privé</p>}
               <label htmlFor={`block-caption-${index}`}>Description / légende</label>
               <input id={`block-caption-${index}`} required maxLength={500} value={block.caption ?? ''}
                 onChange={event => updateBlock(index, { ...block, caption: event.target.value })} />
@@ -164,12 +165,12 @@ export function GiftEditor({
           onChange={event => setDraft({ ...draft, reviewed: event.target.checked })} />J’ai relu ce cadeau et vérifié ses médias avant publication.</label>
         <div className="editor-actions">
           <button type="submit" value="draft" className="secondary-button">Enregistrer le brouillon</button>
-          <button type="submit" value="publish" className="primary-button" disabled={!draft.reviewed}>Publier ce cadeau <span aria-hidden="true">↗</span></button>
+          <button type="submit" value="publish" className="primary-button" disabled={!draft.reviewed}>Publier ce cadeau <ArrowUpRight /></button>
         </div>
       </fieldset>
     </form>
     {error && <p className="form-error" role="alert">{error}</p>}
     {notice && <p className="editor-notice" role="status">{notice}</p>}
-    <button type="button" className="text-button editor-back" disabled={busy} onClick={onCancel}>← Revenir au cadeau</button>
+    <button type="button" className="text-button editor-back" disabled={busy} onClick={onCancel}><ArrowLeft /> Revenir au cadeau</button>
   </div>;
 }
