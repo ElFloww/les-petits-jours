@@ -1,9 +1,11 @@
-import type { CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import type { Calendar } from './api';
-import { Lock } from './Illustrations';
+import { Lock, Gingerbread, CandyCane, Mitten, SnowmanOrnament, StarOrnament, Robin } from './Illustrations';
+import { GiftBox } from './GiftBox';
+import { Bulb } from './Festive';
 
 type Point = { x: number; y: number };
-type GiftStyle = CSSProperties & Record<'--gift-x' | '--gift-y' | '--mobile-x' | '--mobile-y' | '--tie-length', string>;
+type Vars = CSSProperties & Record<`--${string}`, string>;
 
 const stateLabels = { locked: 'À patienter', available: 'À découvrir', opened: 'Déjà ouvert' };
 const desktopPoints: Point[] = [
@@ -21,53 +23,127 @@ const mobilePoints: Point[] = desktopPoints.map((_, index) => ({
 const desktopHeight = 2050;
 const mobileHeight = 5150;
 
-// Interpolate through the attachment points, so the wire and gifts stay aligned at any width.
+// Each wire segment is a cubic Bézier through the attachment points, so gifts, bulbs and wire stay aligned.
+function segment(points: Point[], index: number): [Point, Point, Point, Point] {
+  const start = points[index - 1];
+  const point = points[index];
+  const before = points[Math.max(0, index - 2)];
+  const after = points[Math.min(points.length - 1, index + 1)];
+  return [start,
+    { x: start.x + (point.x - before.x) / 6, y: start.y + (point.y - before.y) / 6 },
+    { x: point.x - (after.x - start.x) / 6, y: point.y - (after.y - start.y) / 6 },
+    point];
+}
+function bezier([a, b, c, d]: [Point, Point, Point, Point], t: number): Point {
+  const u = 1 - t;
+  return {
+    x: u * u * u * a.x + 3 * u * u * t * b.x + 3 * u * t * t * c.x + t * t * t * d.x,
+    y: u * u * u * a.y + 3 * u * u * t * b.y + 3 * u * t * t * c.y + t * t * t * d.y,
+  };
+}
 function garlandPath(points: Point[]) {
-  return points.reduce((path, point, index) => {
-    if (index === 0) return `M ${point.x} ${point.y}`;
-    const start = points[index - 1];
-    const before = points[Math.max(0, index - 2)];
-    const after = points[Math.min(points.length - 1, index + 1)];
-    return `${path} C ${start.x + (point.x - before.x) / 6} ${start.y + (point.y - before.y) / 6}, ${point.x - (after.x - start.x) / 6} ${point.y - (after.y - start.y) / 6}, ${point.x} ${point.y}`;
-  }, '');
+  return points.slice(1).reduce((path, _, offset) => {
+    const [, b, c, d] = segment(points, offset + 1);
+    return `${path} C ${b.x} ${b.y}, ${c.x} ${c.y}, ${d.x} ${d.y}`;
+  }, `M ${points[0].x} ${points[0].y}`);
 }
 
-const wires = [
-  { name: 'desktop', height: desktopHeight, path: garlandPath(desktopPoints) },
-  { name: 'mobile', height: mobileHeight, path: garlandPath(mobilePoints) },
+type Ornament = 'bauble' | 'gingerbread' | 'candy' | 'robin' | 'star' | 'mitten' | 'snowman';
+const ornamentCycle: Ornament[] = ['bauble', 'gingerbread', 'bauble', 'candy', 'robin', 'bauble', 'star', 'mitten', 'bauble', 'snowman', 'robin', 'bauble'];
+const ornamentArt: Record<Exclude<Ornament, 'bauble'>, () => ReactNode> = {
+  gingerbread: () => <Gingerbread />, candy: () => <CandyCane />, robin: () => <Robin />,
+  star: () => <StarOrnament />, mitten: () => <Mitten />, snowman: () => <SnowmanOrnament />,
+};
+
+function layout(points: Point[]) {
+  const bulbs: { x: number; y: number; tilt: number }[] = [];
+  const ornaments: { x: number; y: number; kind: Ornament; index: number }[] = [];
+  for (let index = 1; index < points.length; index++) {
+    const curve = segment(points, index);
+    for (const t of [.16, .33, .67, .84]) {
+      const point = bezier(curve, t);
+      bulbs.push({ ...point, tilt: (bulbs.length % 2 ? 1 : -1) * (6 + (bulbs.length % 3) * 4) });
+    }
+    ornaments.push({ ...bezier(curve, .5), kind: ornamentCycle[(index - 1) % ornamentCycle.length], index });
+  }
+  return { bulbs, ornaments };
+}
+
+const layouts = [
+  { name: 'desktop', height: desktopHeight, path: garlandPath(desktopPoints), ...layout(desktopPoints) },
+  { name: 'mobile', height: mobileHeight, path: garlandPath(mobilePoints), ...layout(mobilePoints) },
 ];
 
 export function GiftGarland({ days, preview, onSelect }: {
   days: Calendar['days']; preview: boolean; onSelect: (day: number) => void;
 }) {
-  return <div className="gift-trail">
-    <div className="garland-decorations" aria-hidden="true">
-      <span className="hanging-bauble bauble-red" /><span className="hanging-bauble bauble-gold" />
-      <span className="floating-snowflake">❄</span><span className="floating-star">✧</span>
-    </div>
-    {wires.map(wire => <svg key={wire.name} className={`garland-wire garland-${wire.name}`}
-      viewBox={`0 0 1000 ${wire.height}`} preserveAspectRatio="none" fill="none" aria-hidden="true">
-      <path className="garland-foliage" d={wire.path} />
-      <path className="garland-cord" d={wire.path} />
-      <path className="garland-lights" d={wire.path} />
-    </svg>)}
+  const trail = useRef<HTMLDivElement>(null);
+  // The boxes turn gently towards the mouse, for a little extra depth.
+  useEffect(() => {
+    const element = trail.current;
+    if (!element) return;
+    let frame = 0;
+    const move = (event: PointerEvent) => {
+      if (event.pointerType !== 'mouse') return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => element.style.setProperty('--tilt', ((event.clientX / window.innerWidth) * 2 - 1).toFixed(3)));
+    };
+    window.addEventListener('pointermove', move);
+    return () => { window.removeEventListener('pointermove', move); cancelAnimationFrame(frame); };
+  }, []);
+
+  return <div className="gift-trail" ref={trail}>
+    {layouts.map(wire => <div key={wire.name} className={`garland-layer garland-${wire.name}`} aria-hidden="true">
+      <svg className="garland-wire" viewBox={`0 0 1000 ${wire.height}`} preserveAspectRatio="none" fill="none">
+        <path className="garland-shadow" d={wire.path} />
+        <path className="garland-needles needles-dark" d={wire.path} />
+        <path className="garland-needles needles-mid" d={wire.path} />
+        <path className="garland-needles needles-light" d={wire.path} />
+        <path className="garland-tinsel" d={wire.path} />
+        <path className="garland-tinsel tinsel-spark" d={wire.path} />
+      </svg>
+      {wire.ornaments.map(({ x, y, kind, index }) => {
+        const style: Vars = {
+          left: `${x / 10}%`, top: `${y}px`,
+          '--len': `${[30, 46, 24, 38, 52][index % 5]}px`,
+          '--swing': `${(3.2 + (index % 4) * .7).toFixed(1)}s`,
+          '--delay': `${(-(index * .9) % 4).toFixed(1)}s`,
+        };
+        return <span key={index} className={`ornament ornament-${kind} ornament-tone-${index % 4}`} style={style}>
+          <span className="ornament-swing">
+            {kind !== 'robin' && <i className="ornament-thread" />}
+            <span className="ornament-body">{kind === 'bauble' ? <i className="bauble"><i className="bauble-glint" /></i> : ornamentArt[kind]()}</span>
+          </span>
+        </span>;
+      })}
+      {wire.bulbs.map((bulb, index) =>
+        <Bulb key={index} index={index} left={`${bulb.x / 10}%`} top={`${bulb.y}px`} tilt={bulb.tilt} />)}
+    </div>)}
     {days.map(({ day, state }) => {
+      const shown = preview ? 'available' : state;
       const point = desktopPoints[day - 1];
       const mobile = mobilePoints[day - 1];
-      const style: GiftStyle = {
+      const style: Vars = {
         '--gift-x': `${point.x / 10}%`, '--gift-y': `${point.y}px`,
         '--mobile-x': `${mobile.x / 10}%`, '--mobile-y': `${mobile.y}px`,
-        '--tie-length': `${[48, 64, 42, 58, 52, 70][day % 6]}px`,
+        '--tie-length': `${[40, 56, 34, 50, 44, 62][day % 6]}px`,
+        '--sway': `${(4.6 + (day % 5) * .55).toFixed(2)}s`,
+        '--sway-delay': `${(-(day * 1.3) % 5).toFixed(1)}s`,
       };
       return <div className="gift-position" key={day} style={style}>
-        <span className="gift-tie" aria-hidden="true" />
-        <button className={`gift gift-${day % 6} ${preview ? 'available' : state}`} disabled={!preview && state === 'locked'}
-          aria-label={`${day} décembre — ${preview ? 'Prévisualiser' : stateLabels[state]}`} onClick={() => onSelect(day)}>
-          <span className="gift-bow" aria-hidden="true" /><span className="gift-lid" aria-hidden="true" />
-          <span className="gift-ribbon" aria-hidden="true" /><span className="gift-number">{String(day).padStart(2, '0')}</span>
-          <span className="gift-badge">{preview ? '↗' : state === 'locked' ? <Lock /> : state === 'opened' ? '✓' : '↗'}</span>
-        </button>
-        <span className={`gift-caption caption-${preview ? 'available' : state}`}>{preview ? 'Prévisualiser' : state === 'locked' ? `${day} décembre` : stateLabels[state]}</span>
+        <div className="gift-hang">
+          <span className="gift-tie" aria-hidden="true" />
+          {/* The button itself stays still (stable hit target); only its visual content sways on the tie. */}
+          <button className={`gift-btn ${shown}`} disabled={!preview && state === 'locked'}
+            aria-label={`${day} décembre — ${preview ? 'Prévisualiser' : stateLabels[state]}`} onClick={() => onSelect(day)}>
+            <span className="gift-sway" aria-hidden="true">
+              {shown === 'available' && <span className="gift-halo"><i /><i /><i /></span>}
+              <GiftBox variant={day % 6} label={String(day).padStart(2, '0')} state={shown} />
+              <span className="gift-badge">{preview ? '↗' : state === 'locked' ? <Lock /> : state === 'opened' ? '✓' : '↗'}</span>
+            </span>
+          </button>
+        </div>
+        <span className={`gift-caption caption-${shown}`}>{preview ? 'Prévisualiser' : state === 'locked' ? `${day} décembre` : stateLabels[state]}</span>
       </div>;
     })}
   </div>;

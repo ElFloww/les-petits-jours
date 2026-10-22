@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError, errorMessage, type Account, type Calendar, type Entry, type ManagedUser, type PreviewEntry } from './api';
-import { ChristmasSprig, Lock, Star, Village } from './Illustrations';
+import { ChristmasSprig, Lock, NightVillage, Sleigh, SleepyMoon, Star, Village } from './Illustrations';
+import { Confetti, HeaderLights, MiniLights, SkyStars, Snowfall } from './Festive';
+import { GiftBox } from './GiftBox';
 import { GiftGarland } from './GiftGarland';
 import { GiftContent } from './GiftContent';
 import { GiftEditor } from './GiftEditor';
@@ -38,6 +40,8 @@ export default function App() {
         <span>les petits jours<span className="brand-caption">LE CALENDRIER DES GENS QU’ON AIME</span></span>
       </a>
       <span className="edition"><span className="edition-dot" /> NOËL 2026</span>
+      <div className="header-sky" aria-hidden="true"><Sleigh /></div>
+      <HeaderLights />
     </header>
     {resetToken ? <ResetPasswordPage token={resetToken} onComplete={() => {
       window.history.replaceState({}, '', window.location.pathname);
@@ -93,9 +97,9 @@ function LoginPage({ notice, onLogin }: { notice: string; onLogin: (account: Acc
       <p>Une blague, un souvenir, un petit défi…<br />En décembre, une surprise vous attend chaque jour.<br />Et celle-ci n’a été préparée que pour vous.</p>
       <div className="login-gifts" aria-hidden="true">
         <Star className="spark spark-one" /><Star className="spark spark-two" />
-        <span className="decor-gift decor-gift-one"><span>01</span></span>
-        <span className="decor-gift decor-gift-two"><span>24</span></span>
-        <span className="decor-gift decor-gift-three"><span>12</span></span>
+        <span className="decor-3d decor-3d-one"><GiftBox variant={0} label="01" state="available" /></span>
+        <span className="decor-3d decor-3d-two"><GiftBox variant={3} label="24" state="locked" /></span>
+        <span className="decor-3d decor-3d-three"><GiftBox variant={5} label="12" state="opened" /></span>
         <span className="handwritten">{decoration}</span>
       </div>
     </section>
@@ -349,11 +353,14 @@ function CalendarPage({ account, onAdmin, onExpired, onLogout }: { account: Acco
         {preview ? <span className="eyebrow">24 CASES À PRÉVISUALISER</span>
           : <div className="legend"><span><i className="legend-available" />À découvrir{available > 0 ? ` (${available})` : ''}</span><span><i className="legend-opened" />Déjà ouvert</span><span><Lock />À patienter</span></div>}
       </section>
-      <section className="gift-landscape garland-landscape" aria-label="Les 24 cadeaux de décembre">
+      <section className="gift-landscape garland-landscape night-landscape" aria-label="Les 24 cadeaux de décembre">
+        <SkyStars />
+        <div className="moon" aria-hidden="true"><SleepyMoon /><span className="moon-z">z</span><span className="moon-z">z</span><span className="moon-z">Z</span></div>
+        <Snowfall layer="back" count={70} />
         <div className="garland-heading"><span className="eyebrow">UNE GUIRLANDE DE PETITS BONHEURS</span><p>Suis le fil de la magie.</p><Star /></div>
-        <span className="landscape-star star-a" aria-hidden="true">✧</span><span className="landscape-star star-b" aria-hidden="true">✳</span>
         <GiftGarland days={calendar.days} preview={preview} onSelect={setSelected} />
-        <Village />
+        <Snowfall layer="front" count={26} />
+        <NightVillage />
       </section>
       <div className="daily-note"><Star /><p>{calendar.decoration}</p><Star /></div>
       {selected !== null && (!preview || calendar.canPreview) && <SurpriseDialog day={selected} calendar={calendar} preview={preview} onSelect={setSelected}
@@ -426,6 +433,8 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
       if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) close();
     }
   }} aria-labelledby="surprise-title">
+    <MiniLights />
+    {entry && !editing && <Confetti key={`${day}-${attempt}`} />}
     <button className="close-dialog" onClick={close} disabled={editorBusy} aria-label="Fermer la surprise" autoFocus>×</button>
     <span className="eyebrow">{String(day).padStart(2, '0')} DÉCEMBRE 2026</span>
     {preview && !editing && <div className="preview-note" role="status">
