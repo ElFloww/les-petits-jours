@@ -257,6 +257,11 @@ function AdminPage({ account, onBack, onExpired }: { account: Account; onBack: (
           <label>Nouveau mot de passe<input type="password" name="password" required minLength={14} maxLength={256} autoComplete="new-password" /></label>
           <button className="secondary-button" type="submit" disabled={busy}>Définir le mot de passe</button>
         </form>
+        <button className="secondary-button" type="button" disabled={busy || !user.isActive || !user.email}
+          onClick={() => void run(
+            () => api.sendCalendarInvitation(user.id),
+            `L’invitation a été envoyée à ${user.email}.`
+          )}>Envoyer l’invitation par e-mail</button>
         <button className="text-button" disabled={busy} onClick={() => void run(
           () => api.setManagedUserActive(user.id, !user.isActive),
           user.isActive ? 'Le compte a été désactivé.' : 'Le compte a été activé.'

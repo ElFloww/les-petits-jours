@@ -96,6 +96,7 @@ services:
     image: caddy:2-alpine
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:?Configure SITE_DOMAIN}
+      NPM_TRUSTED_PROXY_IPS: "${NPM_TRUSTED_PROXY_IPS:?Configure NPM_TRUSTED_PROXY_IPS with the NPM IP or CIDR}"
     ports: ["8081:80"]
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro

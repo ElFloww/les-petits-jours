@@ -149,7 +149,9 @@ try {
 
 Connectez-vous ensuite, puis utilisez **Administration** pour renseigner les emails des comptes
 historiques, créer de nouveaux comptes, modifier les coordonnées, définir un mot de passe ou
-désactiver un compte. L’onglet **Cadeaux** permet de choisir une personne et un jour, puis de
+désactiver un compte. Pour inviter une personne, utilisez **Envoyer l’invitation par e-mail** sur
+son compte actif : elle recevra un lien temporaire pour définir son mot de passe et accéder à son
+calendrier. L’onglet **Cadeaux** permet de choisir une personne et un jour, puis de
 composer, enregistrer en brouillon ou publier son cadeau. Les changements de mot de passe et la
 désactivation révoquent les sessions. Un compte peut aussi être supprimé définitivement :
 ses cadeaux, médias, sessions et jetons de réinitialisation sont supprimés en cascade. Le panneau
@@ -157,13 +159,30 @@ empêche de supprimer son propre compte ou le dernier administrateur actif.
 Le panneau ne permet pas de promouvoir un autre administrateur ; cette opération reste réservée
 à la CLI `admin promote-admin <identifiant> <email>`.
 
-Les liens « mot de passe oublié » sont envoyés par SMTP. En production, renseigner `SMTP_HOST`,
-`SMTP_PORT`, `SMTP_ENABLE_SSL`, `SMTP_USERNAME`, `SMTP_PASSWORD` et `SMTP_FROM_ADDRESS` dans
-l'environnement du déploiement (ainsi que `SMTP_FROM_NAME` si souhaité). Le lien utilise l'URL
-publique définie depuis `SITE_DOMAIN`. En développement, configurer les mêmes paramètres via
-les secrets utilisateur .NET ou des variables d'environnement, et définir `PasswordReset:BaseUrl`
-sur l'adresse du frontend local. Sans SMTP valide, l'API indique explicitement que la réinitialisation
-n'est pas disponible. Les secrets SMTP restent hors du dépôt.
+Les invitations et les liens « mot de passe oublié » sont envoyés par SMTP. Les clés de configuration,
+sans identifiants, sont déclarées dans `src/Advent.Api/appsettings.json`. Demandez à votre fournisseur
+de messagerie l'hôte SMTP, le port, le mode TLS, l'identifiant et le mot de passe SMTP ; l'adresse
+d'expédition doit être autorisée par ce fournisseur. Le port 587 avec TLS activé est recommandé.
+
+En développement, stockez les paramètres dans les secrets utilisateur .NET depuis la racine du dépôt
+(remplacez les valeurs d'exemple par celles de votre fournisseur) :
+
+```powershell
+dotnet user-secrets set "Smtp:Host" "smtp.example.com" --project .\src\Advent.Api
+dotnet user-secrets set "Smtp:Port" "587" --project .\src\Advent.Api
+dotnet user-secrets set "Smtp:EnableSsl" "true" --project .\src\Advent.Api
+dotnet user-secrets set "Smtp:Username" "votre-identifiant-smtp" --project .\src\Advent.Api
+dotnet user-secrets set "Smtp:Password" "votre-mot-de-passe-smtp" --project .\src\Advent.Api
+dotnet user-secrets set "Smtp:FromAddress" "calendrier@example.com" --project .\src\Advent.Api
+dotnet user-secrets set "Smtp:FromName" "Les petits jours" --project .\src\Advent.Api
+dotnet user-secrets set "PasswordReset:BaseUrl" "http://127.0.0.1:5173/" --project .\src\Advent.Api
+```
+
+En production, `compose.production.yaml` lit les variables `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_ENABLE_SSL`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_ADDRESS` et `SMTP_FROM_NAME`.
+`PasswordReset:BaseUrl` est construit à partir de `SITE_DOMAIN`. Fournissez ces valeurs via
+l'environnement ou un gestionnaire de secrets, jamais dans un fichier versionné. Sans configuration
+SMTP valide, l'API indique explicitement que l'envoi n'est pas disponible.
 
 La CLI utilise la même configuration SQL que l'API. À la racine :
 
@@ -350,6 +369,7 @@ Paramètres à injecter dans l'environnement du serveur ou son gestionnaire de s
 | Variable | Valeur attendue |
 |---|---|
 | `SITE_DOMAIN` | Nom DNS du site, pointant vers le serveur |
+| `NPM_TRUSTED_PROXY_IPS` | Adresse IP/CIDR de NPM telle que vue par le LXC Docker (adresses multiples séparées par des espaces) |
 | `MSSQL_SA_PASSWORD` | Secret d'administration SQL, fort et unique |
 | `APP_DB_PASSWORD` | Autre secret SQL, 24 à 128 caractères |
 | `INITIAL_ADMIN_EMAIL` | Email du premier administrateur, requis au premier déploiement |
@@ -372,11 +392,16 @@ L'API n'utilise jamais le compte `sa`. Le secret d'administration sert aux tâch
 `schema` et `provision` sont des services du profil `tools`, sans redémarrage automatique :
 aucune migration ou publication de schéma n'a lieu au redémarrage de l'API.
 
-Le proxy Caddy sert le domaine en HTTP sur le port hôte 8081. Dans NPM, configurer ce port
-comme cible HTTP du proxy host ; NPM conserve la terminaison TLS publique sur les ports 80/443.
-Limiter l'accès au port 8081 aux connexions provenant de NPM avec le pare-feu de l'hôte si possible.
+Le HTTPS public est terminé par NPM (ports 80/443). Dans son proxy host, utiliser l'adresse
+du LXC Docker, le port `8081` et le schéma **HTTP** comme destination. Le trafic NPM → Caddy
+et Caddy → frontend/API reste en HTTP ; Caddy est configuré explicitement sans TLS automatique.
+Renseigner `NPM_TRUSTED_PROXY_IPS` avec l'adresse IP ou le CIDR précis de NPM tel que vu depuis
+le LXC Docker (par exemple `10.0.0.20/32`) ; Caddy ne fait confiance aux en-têtes transférés que
+depuis ces adresses. Si plusieurs adresses source sont utilisées, séparer les CIDR par des espaces
+et entourer la valeur de guillemets dans le fichier d'environnement Compose.
+Limiter aussi l'accès au port 8081 aux connexions provenant de NPM avec le pare-feu du LXC/hôte.
 SQL et l'API ne publient aucun port sur l'hôte ; SQL est sur le réseau interne `data`.
-Le proxy a l'adresse fixe `172.29.216.10`, seule adresse Docker autorisée à transmettre
+Le proxy a l'adresse fixe `172.29.216.10`, seule adresse Docker autorisée par l'API à transmettre
 les en-têtes d'IP et de protocole. En cas de conflit de sous-réseau, modifier **ensemble**
 le réseau Compose, cette adresse et `Proxy__Address`.
 

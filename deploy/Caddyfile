@@ -1,3 +1,9 @@
+{
+    servers {
+        trusted_proxies static {$NPM_TRUSTED_PROXY_IPS}
+    }
+}
+
 http://{$SITE_DOMAIN} {
     encode zstd gzip
     header {

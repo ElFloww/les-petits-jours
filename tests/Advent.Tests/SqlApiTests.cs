@@ -170,6 +170,20 @@ public sealed class SqlApiTests
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var user = (await created.Content.ReadFromJsonAsync<ManagedUserResponse>())!;
 
+        var invitation = new HttpRequestMessage(HttpMethod.Post, $"/api/admin/users/{user.Id}/invitation");
+        invitation.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.SendAsync(invitation)).StatusCode);
+        Assert.Equal("ami@example.com", fixture.Email.LastInvitationEmail);
+        var invitationLink = new Uri(fixture.Email.LastInvitationLink!);
+        var invitationToken = Uri.UnescapeDataString(invitationLink.Query["?resetToken=".Length..]);
+        const string invitationPassword = "invitation-password-secure!";
+        var invitationReset = new HttpRequestMessage(HttpMethod.Post, "/api/auth/reset-password")
+        {
+            Content = JsonContent.Create(new { token = invitationToken, password = invitationPassword })
+        };
+        invitationReset.Headers.Add("X-CSRF-Token", await Csrf(admin));
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.SendAsync(invitationReset)).StatusCode);
+
         var adminUser = (await admin.GetFromJsonAsync<ManagedUserResponse[]>("/api/admin/users/"))!
             .Single(x => x.IsAdmin && x.IsActive);
         var selfDelete = new HttpRequestMessage(HttpMethod.Delete, $"/api/admin/users/{adminUser.Id}");
@@ -177,7 +191,7 @@ public sealed class SqlApiTests
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.SendAsync(selfDelete)).StatusCode);
 
         using var member = fixture.CreateClient();
-        await Login(member, "ami@example.com", fixture.Password);
+        await Login(member, "ami@example.com", invitationPassword);
         var louisa = (await admin.GetFromJsonAsync<ManagedUserResponse[]>("/api/admin/users/"))!
             .Single(x => x.Username == "louisa");
         Assert.Equal(HttpStatusCode.Forbidden,
@@ -206,7 +220,7 @@ public sealed class SqlApiTests
         update.Headers.Add("X-CSRF-Token", await Csrf(admin));
         Assert.Equal(HttpStatusCode.OK, (await admin.SendAsync(update)).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await member.GetAsync("/api/auth/me")).StatusCode);
-        await Login(member, "nouvelle@example.com", fixture.Password);
+        await Login(member, "nouvelle@example.com", invitationPassword);
 
         var forgot = new HttpRequestMessage(HttpMethod.Post, "/api/auth/forgot-password")
         {
@@ -332,10 +346,19 @@ internal sealed class FakeEmailSender : IEmailSender
     public bool IsConfigured => true;
     public string PasswordResetBaseUrl => "https://example.test/";
     public string? LastLink { get; private set; }
+    public string? LastInvitationLink { get; private set; }
+    public string? LastInvitationEmail { get; private set; }
 
     public Task SendPasswordReset(string email, string displayName, string link, CancellationToken ct)
     {
         LastLink = link;
+        return Task.CompletedTask;
+    }
+
+    public Task SendCalendarInvitation(string email, string displayName, string link, CancellationToken ct)
+    {
+        LastInvitationEmail = email;
+        LastInvitationLink = link;
         return Task.CompletedTask;
     }
 }

@@ -5,6 +5,7 @@ using MediatR;
 namespace Advent.Application;
 
 public sealed record ForgotPasswordCommand(string Email) : IRequest;
+public sealed record SendCalendarInvitationCommand(Guid UserId) : IRequest;
 public sealed record ResetPasswordCommand(string Token, string Password) : IRequest;
 public sealed record CreateManagedUserCommand(string Email, string DisplayName, string Password) : IRequest<ManagedUserResponse>;
 public sealed record UpdateManagedUserCommand(Guid Id, string Email, string DisplayName) : IRequest<ManagedUserResponse>;
@@ -20,6 +21,11 @@ public sealed class ForgotPasswordValidator : AbstractValidator<ForgotPasswordCo
 {
     public ForgotPasswordValidator() =>
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(254);
+}
+
+public sealed class SendCalendarInvitationValidator : AbstractValidator<SendCalendarInvitationCommand>
+{
+    public SendCalendarInvitationValidator() => RuleFor(x => x.UserId).NotEmpty();
 }
 
 public sealed class ResetPasswordValidator : AbstractValidator<ResetPasswordCommand>
@@ -98,16 +104,12 @@ public sealed class InitializeDefaultAdminValidator : AbstractValidator<Initiali
     }
 }
 
-public sealed class ForgotPasswordHandler(
-    IUserRepository users, IPasswordResetRepository resetTokens, ISessionTokens tokens,
-    IUnitOfWork uow, IEmailSender email, TimeProvider clock)
-    : IRequestHandler<ForgotPasswordCommand>
+public sealed class PasswordResetLinkService(
+    IPasswordResetRepository resetTokens, ISessionTokens tokens, IUnitOfWork uow,
+    IEmailSender email, TimeProvider clock)
 {
-    public async Task Handle(ForgotPasswordCommand request, CancellationToken ct)
+    public async Task<string> Create(Guid userId, CancellationToken ct)
     {
-        var user = await users.FindByEmail(request.Email.Trim().ToLowerInvariant(), ct);
-        if (user is not { IsActive: true, Email: not null }) return;
-
         var baseUrl = email.PasswordResetBaseUrl;
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri) || uri.Scheme is not ("https" or "http"))
             throw new InvalidOperationException("Configurez PasswordReset:BaseUrl avec l'URL publique du site.");
@@ -118,13 +120,41 @@ public sealed class ForgotPasswordHandler(
         resetTokens.Add(new PasswordResetToken
         {
             TokenHash = tokens.Hash(token),
-            UserId = user.Id,
+            UserId = userId,
             ExpiresAt = now.AddMinutes(30)
         });
         await uow.SaveChanges(ct);
+        return new Uri(uri, $"?resetToken={Uri.EscapeDataString(token)}").ToString();
+    }
+}
 
-        var link = new Uri(uri, $"?resetToken={Uri.EscapeDataString(token)}").ToString();
+public sealed class ForgotPasswordHandler(
+    IUserRepository users, PasswordResetLinkService resetLinks, IEmailSender email)
+    : IRequestHandler<ForgotPasswordCommand>
+{
+    public async Task Handle(ForgotPasswordCommand request, CancellationToken ct)
+    {
+        var user = await users.FindByEmail(request.Email.Trim().ToLowerInvariant(), ct);
+        if (user is not { IsActive: true, Email: not null }) return;
+
+        var link = await resetLinks.Create(user.Id, ct);
         await email.SendPasswordReset(user.Email, user.DisplayName, link, ct);
+    }
+}
+
+public sealed class SendCalendarInvitationHandler(
+    IUserRepository users, PasswordResetLinkService resetLinks, IEmailSender email)
+    : IRequestHandler<SendCalendarInvitationCommand>
+{
+    public async Task Handle(SendCalendarInvitationCommand request, CancellationToken ct)
+    {
+        var user = await users.FindById(request.UserId, ct)
+            ?? throw new AppException(404, "Compte introuvable.");
+        if (!user.IsActive) throw new AppException(400, "Impossible d’envoyer une invitation à un compte désactivé.");
+        if (user.Email is null) throw new AppException(400, "Ce compte ne possède pas d’adresse email.");
+
+        var link = await resetLinks.Create(user.Id, ct);
+        await email.SendCalendarInvitation(user.Email, user.DisplayName, link, ct);
     }
 }
 

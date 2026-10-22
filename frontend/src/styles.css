@@ -239,3 +239,6 @@
   .admin-user-heading { align-items: flex-start; flex-direction: column; }
   .account-actions { gap: 4px; }
 }
+@media(max-width:600px) {
+  body { font-variant-emoji: text; }
+}

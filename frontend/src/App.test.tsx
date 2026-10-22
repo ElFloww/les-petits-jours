@@ -10,7 +10,8 @@ vi.mock('./api', async importOriginal => {
     me: vi.fn(), login: vi.fn(), logout: vi.fn(), calendar: vi.fn(), open: vi.fn(), preview: vi.fn(),
     saveGift: vi.fn(), uploadMedia: vi.fn(), forgotPassword: vi.fn(), resetPassword: vi.fn(),
     managedUsers: vi.fn(), createManagedUser: vi.fn(), updateManagedUser: vi.fn(),
-    setManagedUserPassword: vi.fn(), setManagedUserActive: vi.fn(), deleteManagedUser: vi.fn(),
+    setManagedUserPassword: vi.fn(), sendCalendarInvitation: vi.fn(),
+    setManagedUserActive: vi.fn(), deleteManagedUser: vi.fn(),
     adminGift: vi.fn(), saveAdminGift: vi.fn(), uploadAdminGiftMedia: vi.fn(),
   } };
 });
@@ -35,6 +36,7 @@ beforeEach(() => {
   vi.mocked(api.forgotPassword).mockReset();
   vi.mocked(api.resetPassword).mockReset();
   vi.mocked(api.managedUsers).mockReset();
+  vi.mocked(api.sendCalendarInvitation).mockReset();
   vi.mocked(api.deleteManagedUser).mockReset();
   vi.mocked(api.adminGift).mockReset();
   vi.mocked(api.saveAdminGift).mockReset();
@@ -190,6 +192,21 @@ describe('Private calendar', () => {
     expect(await screen.findByRole('heading', { name: 'Gestion des comptes' })).toBeInTheDocument();
     expect(screen.getByDisplayValue('ami@example.com')).toBeInTheDocument();
     expect(api.managedUsers).toHaveBeenCalled();
+  });
+
+  it('lets admins send a calendar invitation with a password setup link', async () => {
+    vi.mocked(api.me).mockResolvedValue({ ...account, isAdmin: true });
+    vi.mocked(api.managedUsers).mockResolvedValue([{
+      id: 'user1', username: 'ami', email: 'ami@example.com', displayName: 'Ami', isActive: true, isAdmin: false,
+    }]);
+    vi.mocked(api.sendCalendarInvitation).mockResolvedValue();
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Administration' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Envoyer l’invitation par e-mail' }));
+
+    expect(api.sendCalendarInvitation).toHaveBeenCalledWith('user1');
+    expect(await screen.findByRole('status')).toHaveTextContent('L’invitation a été envoyée à ami@example.com.');
   });
 
   it('requires confirmation before deleting an account', async () => {

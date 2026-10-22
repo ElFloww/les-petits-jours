@@ -51,6 +51,25 @@ public static class AdministrationEndpoints
             .WithName("SetUserPassword").WithSummary("Définir un mot de passe et révoquer les sessions du compte.")
             .ProducesProblem(400).ProducesProblem(404);
 
+        group.MapPost("/{id:guid}/invitation", async (Guid id, ISender sender, IEmailSender email,
+            ILoggerFactory loggerFactory, CancellationToken ct) =>
+        {
+            if (!email.IsConfigured)
+                throw new AppException(503, "Le service d’envoi des emails n’est pas configuré.");
+            try
+            {
+                await sender.Send(new SendCalendarInvitationCommand(id), ct);
+            }
+            catch (EmailDeliveryException exception)
+            {
+                loggerFactory.CreateLogger("CalendarInvitation").LogError(exception, "Échec de l’envoi d’une invitation au calendrier.");
+                throw new AppException(503, "L’email d’invitation n’a pas pu être envoyé. Réessayez plus tard.");
+            }
+            return TypedResults.NoContent();
+        }).AddEndpointFilter<CsrfFilter>().RequireRateLimiting("password-reset")
+            .WithName("SendCalendarInvitation").WithSummary("Envoyer un lien d’invitation et de définition du mot de passe.")
+            .ProducesProblem(400).ProducesProblem(404).ProducesProblem(429).ProducesProblem(503);
+
         group.MapPut("/{id:guid}/active", async (Guid id, ManagedUserActiveRequest request, ISender sender,
             ClaimsPrincipal actor, CancellationToken ct) =>
         {

@@ -136,6 +136,8 @@ export const api = {
     mutate<ManagedUser>(`/admin/users/${user.id}`, 'PUT', { email: user.email, displayName: user.displayName }),
   setManagedUserPassword: (id: string, password: string) =>
     mutate<void>(`/admin/users/${id}/password`, 'PUT', { password }),
+  sendCalendarInvitation: (id: string) =>
+    mutateWithoutBody<void>(`/admin/users/${id}/invitation`, 'POST'),
   setManagedUserActive: (id: string, isActive: boolean) =>
     mutate<void>(`/admin/users/${id}/active`, 'PUT', { isActive }),
   deleteManagedUser: (id: string) => mutateWithoutBody<void>(`/admin/users/${id}`, 'DELETE'),

@@ -68,6 +68,7 @@ public interface IEmailSender
     bool IsConfigured { get; }
     string? PasswordResetBaseUrl { get; }
     Task SendPasswordReset(string email, string displayName, string link, CancellationToken ct);
+    Task SendCalendarInvitation(string email, string displayName, string link, CancellationToken ct);
 }
 
 public sealed class EmailDeliveryException(string message, Exception innerException) : Exception(message, innerException);
