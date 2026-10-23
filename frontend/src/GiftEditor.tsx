@@ -2,9 +2,15 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, Check, Close } from './Icons';
 import { ApiError, errorMessage, type ContentBlock, type Entry, type GiftDraft, type PreviewEntry } from './api';
 import { GiftContent } from './GiftContent';
+import { compressImage } from './compressImage';
+import { acceptAttribute, resolveMediaType, withMediaType } from './mediaTypes';
 
+const formatsHelp = {
+  image: 'JPG, PNG, WebP, GIF, AVIF, HEIC (iPhone), BMP, TIFF',
+  video: 'MP4, MOV (iPhone), WebM, MKV, AVI, 3GP',
+  audio: 'MP3, M4A, AAC, WAV, OGG, FLAC',
+};
 const blockNames = { text: 'Texte', quote: 'Citation', image: 'Image', video: 'Vidéo', audio: 'Audio' };
-const accepts = { image: 'image/jpeg,image/png,image/webp,image/gif', video: 'video/mp4,video/webm', audio: 'audio/mpeg,audio/wav,audio/ogg' };
 
 export function GiftEditor({
   day, initial, decoration, mediaBasePath, onSave, onUpload, onSaved, onPublished, onDirtyChange, onBusyChange, onExpired, onCancel,
@@ -59,15 +65,28 @@ export function GiftEditor({
     const block = draft.blocks[index];
     if (block.type === 'text' || block.type === 'quote') return;
     setError('');
-    const limit = block.type === 'image' ? 10 : 50;
-    if (!accepts[block.type].split(',').includes(file.type) || file.size > limit * 1024 * 1024 || file.size === 0) {
-      setError(`Choisis un fichier ${blockNames[block.type].toLowerCase()} compatible, non vide, de ${limit} Mo maximum.`);
+    const limit = block.type === 'image' ? 40 : 300;
+    const sourceLimit = block.type === 'image' ? 120 : 300;
+    const type = resolveMediaType(file, block.type);
+    if (!type || file.size > sourceLimit * 1024 * 1024 || file.size === 0) {
+      setError(type ? `Choisis un fichier non vide, de ${sourceLimit} Mo maximum.`
+        : `Format non pris en charge pour ce bloc (${blockNames[block.type].toLowerCase()}). Formats acceptés : ${formatsHelp[block.type]}.`);
       return;
     }
     setBusy(true);
-    setNotice('Import du média en cours…');
     try {
-      const media = await onUpload(file);
+      let toSend = withMediaType(file, type);
+      if (block.type === 'image') {
+        setNotice('Optimisation de l’image…');
+        toSend = await compressImage(toSend);
+        if (toSend.size > limit * 1024 * 1024) {
+          setNotice('');
+          setError(`Cette image reste trop lourde (${limit} Mo maximum après optimisation).`);
+          return;
+        }
+      }
+      setNotice(block.type === 'video' ? 'Import de la vidéo en cours… (elle est allégée pendant l’import, cela peut prendre quelques minutes)' : 'Import du média en cours…');
+      const media = await onUpload(toSend);
       updateBlock(index, { type: block.type, mediaId: media.mediaId, caption: block.caption || file.name.replace(/\.[^.]+$/, '') });
       setNotice('Média importé. Enregistre le brouillon pour le conserver dans ce cadeau.');
     } catch (cause) { setNotice(''); failure(cause); }
@@ -141,8 +160,8 @@ export function GiftEditor({
             </> : <>
               <label className="upload-zone" htmlFor={`block-file-${index}`}>
                 <ArrowUp /><strong>{block.mediaId ? 'Remplacer le fichier' : `Importer ${block.type === 'image' ? 'une image' : block.type === 'video' ? 'une vidéo' : 'un audio'}`}</strong>
-                <span>{block.type === 'image' ? 'JPG, PNG, WebP, GIF · 10 Mo max.' : block.type === 'video' ? 'MP4, WebM · 50 Mo max.' : 'MP3, WAV, OGG · 50 Mo max.'}</span>
-                <input id={`block-file-${index}`} type="file" accept={accepts[block.type]} onChange={event => {
+                <span>{block.type === 'image' ? 'JPG, PNG, HEIC, WebP, GIF, AVIF… · 40 Mo max.' : block.type === 'video' ? 'MP4, MOV, WebM, MKV, AVI… · 300 Mo max.' : 'MP3, M4A, WAV, OGG, FLAC… · 300 Mo max.'}</span>
+                <input id={`block-file-${index}`} type="file" accept={acceptAttribute[block.type]} onChange={event => {
                   const file = event.target.files?.[0];
                   if (file) void upload(index, file);
                   event.target.value = '';

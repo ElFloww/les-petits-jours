@@ -6,7 +6,7 @@ RUN dotnet publish src/Advent.Api/Advent.Api.csproj -c Release -o /app --nologo
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ffmpeg libheif-examples && rm -rf /var/lib/apt/lists/* \
     && mkdir /keys && chown "$APP_UID" /keys
 WORKDIR /app
 COPY --from=build /app .

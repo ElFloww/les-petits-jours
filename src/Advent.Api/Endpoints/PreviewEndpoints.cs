@@ -35,7 +35,7 @@ public static class PreviewEndpoints
             int day, HttpRequest request, IGiftMedia media, ClaimsPrincipal user, CancellationToken ct) =>
         {
             if (request.ContentLength > GiftMedia.MaxBytes)
-                throw new AppException(413, "Fichier trop volumineux : 50 Mo maximum.");
+                throw new AppException(413, "Fichier trop volumineux : 300 Mo maximum.");
             var limit = request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
             if (limit is { IsReadOnly: false }) limit.MaxRequestBodySize = GiftMedia.MaxBytes;
             var uploaded = await media.Upload(AuthenticationEndpoints.UserId(user), day,
@@ -43,7 +43,7 @@ public static class PreviewEndpoints
             return TypedResults.Created($"/api/preview/calendar/{day}/media/{uploaded.MediaId}", uploaded);
         }).AddEndpointFilter<CsrfFilter>()
             .WithName("UploadGiftMedia").WithSummary("Importer un média privé pour cette personne et ce jour.")
-            .WithDescription("Corps binaire brut et Content-Type du fichier. Images : 10 Mo ; vidéos et audio : 50 Mo. Atelier uniquement.")
+            .WithDescription("Corps binaire brut et Content-Type du fichier. Images : 40 Mo ; vidéos et audio : 300 Mo (vidéos recompressées côté serveur si ffmpeg est présent). Atelier uniquement.")
             .ProducesProblem(400).ProducesProblem(401).ProducesProblem(413);
 
         group.MapGet("/{day:int}/media/{mediaId}", async (

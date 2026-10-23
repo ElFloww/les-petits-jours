@@ -99,7 +99,7 @@ public static class AdministrationEndpoints
             Guid userId, int day, HttpRequest request, IGiftMedia media, CancellationToken ct) =>
         {
             if (request.ContentLength > GiftMedia.MaxBytes)
-                throw new AppException(413, "Fichier trop volumineux : 50 Mo maximum.");
+                throw new AppException(413, "Fichier trop volumineux : 300 Mo maximum.");
             var limit = request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
             if (limit is { IsReadOnly: false }) limit.MaxRequestBodySize = GiftMedia.MaxBytes;
             var uploaded = await media.Upload(userId, day, request.ContentType ?? "", request.Body, ct);

@@ -17,6 +17,8 @@ public sealed class InfrastructureModule(string connectionString) : Module
         builder.RegisterType<MediaRepository>().As<IMediaRepository>().InstancePerLifetimeScope();
         builder.RegisterType<SessionRepository>().As<ISessionRepository>().InstancePerLifetimeScope();
         builder.RegisterType<PasswordService>().As<IPasswordService>().SingleInstance();
+        builder.RegisterType<FfmpegVideoCompressor>().As<IVideoCompressor>().SingleInstance();
+        builder.RegisterType<ExternalImageConverter>().As<IImageConverter>().SingleInstance();
         builder.RegisterType<SessionTokens>().As<ISessionTokens>().SingleInstance();
     }
 }
