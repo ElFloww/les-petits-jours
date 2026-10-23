@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError, errorMessage, type Account, type Calendar, type Entry, type ManagedUser, type PreviewEntry } from './api';
 import { Lock, Sleigh, Star, Village } from './Illustrations';
 import { Bow, DecorBough, Holly, Mantel, Pinecone, Wreath, cornerBough } from './Decor';
@@ -295,6 +295,20 @@ function CalendarPage({ account, onAdmin, onExpired, onLogout }: { account: Acco
   const [loggingOut, setLoggingOut] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [preview, setPreview] = useState(false);
+  // Debug mode (administrators only): every gift can be opened to test the whole experience.
+  // Nothing is written on the server — "opened" is simulated in this page only.
+  const [debug, setDebugState] = useState(() => account.isAdmin && readDebugFlag());
+  const [debugOpened, setDebugOpened] = useState<number[]>([]);
+  const debugOn = debug && account.isAdmin;
+  function setDebug(value: boolean) {
+    setDebugState(value);
+    setSelected(null);
+    setDebugOpened([]);
+    try { window.localStorage.setItem(DEBUG_KEY, value ? '1' : '0'); } catch { /* storage unavailable */ }
+  }
+  const shownDays = useMemo(() => !calendar ? [] : !debugOn ? calendar.days
+    : calendar.days.map(item => ({ ...item, state: debugOpened.includes(item.day) ? 'opened' as const : item.state === 'opened' ? 'opened' as const : 'available' as const })),
+  [calendar, debugOn, debugOpened]);
   useEffect(() => {
     if (!calendar?.canPreview) { setPreview(false); setSelected(null); }
   }, [calendar?.canPreview]);
@@ -327,6 +341,7 @@ function CalendarPage({ account, onAdmin, onExpired, onLogout }: { account: Acco
     <div className="account-bar"><span><span className="avatar">{account.displayName[0]}</span>Le calendrier de <strong>{account.displayName}</strong></span>
       <span className="account-actions">
         <SoundToggle />
+        {account.isAdmin && <button type="button" className="text-button debug-toggle" aria-pressed={debugOn} onClick={() => setDebug(!debugOn)}>Mode debug {debugOn ? 'activé' : ''}</button>}
         {account.isAdmin && <button className="text-button" onClick={onAdmin}>Administration</button>}
         <button className="text-button" onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'Déconnexion…' : 'Se déconnecter'} <ArrowUpRight /></button>
       </span>
@@ -369,6 +384,18 @@ function CalendarPage({ account, onAdmin, onExpired, onLogout }: { account: Acco
           {preview ? 'Revenir au calendrier réel' : 'Prévisualiser les 24 cases'}
         </button>
       </section>}
+      {debugOn && <section className="preview-controls preview-active debug-controls" aria-label="Mode debug">
+        <div>
+          <strong>Mode debug — tous les cadeaux sont ouvrables</strong>
+          <p>Tu vois le contenu enregistré dans ton propre calendrier, sans aucun effet sur les vraies ouvertures. L’état « ouvert » est simulé sur cette page seulement.</p>
+        </div>
+        <div className="debug-actions">
+          <button type="button" className="secondary-button" onClick={() => setDebugOpened(Array.from({ length: 24 }, (_, index) => index + 1))}>Tout ouvrir</button>
+          <button type="button" className="secondary-button" onClick={() => setDebugOpened([])}>Tout refermer</button>
+          <button type="button" className="secondary-button" onClick={() => setDebug(false)}>Quitter le debug</button>
+        </div>
+      </section>}
+      {!preview && !debugOn && <NextGiftCountdown days={calendar.days} onDue={() => void refresh()} />}
       <section className="calendar-toolbar" aria-label="Progression et légende">
         <div className="progress-block"><span><strong>{opened.toString().padStart(2, '0')}</strong> / 24 {preview ? 'ouvertures réelles (inchangées)' : 'petits bonheurs découverts'}</span>
           <progress value={opened} max={24} aria-label={`${opened} cadeaux ouverts sur 24`} /></div>
@@ -378,23 +405,24 @@ function CalendarPage({ account, onAdmin, onExpired, onLogout }: { account: Acco
       <section className="gift-landscape garland-landscape night-landscape" aria-label="Les 24 cadeaux de décembre">
         <Snowfall layer="back" count={40} />
         <div className="garland-heading"><Holly className="heading-holly hl-left" /><Holly className="heading-holly hl-right" /><span className="eyebrow">UNE GUIRLANDE DE PETITS BONHEURS</span><p>Suis le fil de la magie.</p><Star /></div>
-        <GiftGarland days={calendar.days} preview={preview} onSelect={setSelected} />
+        <GiftGarland days={shownDays} preview={preview} interactive={debugOn} onSelect={setSelected} />
         <Snowfall layer="front" count={14} />
         <Village />
       </section>
       <div className="daily-note"><Star /><p>{calendar.decoration}</p><Star /></div>
       <Mantel />
-      {selected !== null && (!preview || calendar.canPreview) && <SurpriseDialog day={selected} calendar={calendar} preview={preview} onSelect={setSelected}
-        onClose={() => setSelected(null)} onExpired={onExpired} onOpened={day =>
+      {selected !== null && (!preview || calendar.canPreview) && <SurpriseDialog day={selected} calendar={{ ...calendar, days: shownDays }} preview={preview} debugAccountId={debugOn ? account.id : undefined} onSelect={setSelected}
+        onClose={() => setSelected(null)} onExpired={onExpired} onOpened={day => debugOn ? setDebugOpened(current => current.includes(day) ? current : [...current, day]) :
           setCalendar(current => current && ({ ...current, days: current.days.map(item => item.day === day ? { ...item, state: 'opened' } : item) }))} />}
     </>}
   </main>;
 }
 
-function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, onOpened }: {
+function SurpriseDialog({ day, calendar, preview, debugAccountId, onSelect, onClose, onExpired, onOpened }: {
   day: number; calendar: Calendar; onSelect: (day: number) => void; onClose: () => void;
-  onExpired: () => void; onOpened: (day: number) => void; preview: boolean;
+  onExpired: () => void; onOpened: (day: number) => void; preview: boolean; debugAccountId?: string;
 }) {
+  const debug = debugAccountId !== undefined;
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef(document.activeElement);
   const [entry, setEntry] = useState<Entry | PreviewEntry | null>(null);
@@ -430,7 +458,7 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
     setEntry(null);
     setError('');
     setMissingEntry(false);
-    const load = preview ? api.preview : api.open;
+    const load = debug ? (target: number, signal?: AbortSignal) => api.adminGift(debugAccountId, target, signal) : preview ? api.preview : api.open;
     void load(day, controller.signal).then(result => {
       if (!controller.signal.aborted) {
         setEntry(result);
@@ -441,12 +469,12 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
       if (cause instanceof ApiError && cause.status === 401) callbacks.current.onExpired();
       else {
         setMissingEntry(cause instanceof ApiError && cause.status === 404);
-        setError(errorMessage(cause));
+        setError(debug && cause instanceof ApiError && cause.status === 404 ? 'Aucun cadeau n’est encore préparé pour ce jour dans ton calendrier.' : errorMessage(cause));
       }
     });
     return () => controller.abort();
-  }, [day, attempt, preview]);
-  const days = calendar.days.filter(item => preview || item.state !== 'locked').map(item => item.day);
+  }, [day, attempt, preview, debug, debugAccountId]);
+  const days = calendar.days.filter(item => preview || debug || item.state !== 'locked').map(item => item.day);
   const index = days.indexOf(day);
   return <dialog className={`surprise-dialog ${editing || entry?.blocks?.length ? 'wide-dialog' : ''}`} ref={ref} onCancel={event => { event.preventDefault(); close(); }} onClick={event => {
     if (event.target === event.currentTarget) {
@@ -458,6 +486,7 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
     {entry && !editing && <Confetti key={`${day}-${attempt}`} />}
     <button className="close-dialog" onClick={close} disabled={editorBusy} aria-label="Fermer la surprise" autoFocus><Close /></button>
     <span className="eyebrow">{String(day).padStart(2, '0')} DÉCEMBRE 2026</span>
+    {debug && <div className="preview-note" role="status"><strong>Mode debug</strong><p>Contenu enregistré dans ton calendrier, ouvert sans effet réel.</p></div>}
     {preview && !editing && <div className="preview-note" role="status">
       <strong>Prévisualisation locale — {entry && 'isPublished' in entry ? (entry.isPublished ? 'Publié' : 'Brouillon non publié') : 'Lecture seule'}</strong>
       <p>Un petit atelier privé pour préparer les cadeaux à ton rythme.</p>
@@ -474,7 +503,7 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
     {!entry && <h2 id="surprise-title">Le cadeau du {day} décembre</h2>}
     {error ? <ErrorBox message={error} retry={() => setAttempt(value => value + 1)} />
       : !entry ? <div className="center-state" role="status"><Spinner /><p>On défait le ruban…</p></div>
-        : <GiftContent key={`${entry.day}-${attempt}`} entry={entry} preview={preview} decoration={calendar.decoration} />}
+        : <GiftContent key={`${entry.day}-${attempt}`} entry={entry} preview={preview} decoration={calendar.decoration} mediaBasePath={debug ? `/api/admin/gifts/${debugAccountId}` : undefined} />}
     <nav className="surprise-navigation" aria-label={preview ? 'Prévisualiser les 24 cadeaux' : 'Parcourir les cadeaux disponibles'}>
       <button className="text-button" disabled={index <= 0} onClick={() => onSelect(days[index - 1])}><ArrowLeft /> Précédent</button>
       <span>{day} / 24</span>
@@ -498,4 +527,36 @@ function SoundToggle() {
       <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5Z" />{muted ? <path d="m16 9.5 5 5m0-5-5 5" /> : <path d="M16 9a4.2 4.2 0 0 1 0 6M18.6 6.5a8 8 0 0 1 0 11" />}
     </svg><span className="sound-label">{muted ? 'Son coupé' : 'Son'}</span>
   </button>;
+}
+
+const DEBUG_KEY = 'petits-jours-debug';
+function readDebugFlag() {
+  try { return window.localStorage.getItem(DEBUG_KEY) === '1'; } catch { return false; }
+}
+
+/** Countdown to the next locked gift. Calls onDue once when it unlocks so the calendar refreshes. */
+function NextGiftCountdown({ days, onDue }: { days: Calendar['days']; onDue: () => void }) {
+  const next = days.filter(item => item.state === 'locked').sort((a, b) => a.day - b.day)[0];
+  const target = next ? Date.parse(next.unlocksAt) : Number.NaN;
+  const [now, setNow] = useState(() => Date.now());
+  const notified = useRef(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  useEffect(() => {
+    if (Number.isFinite(target) && now >= target && notified.current !== target) { notified.current = target; onDue(); }
+  }, [now, target, onDue]);
+  if (!next || !Number.isFinite(target)) return null;
+  const left = Math.max(0, Math.floor((target - now) / 1000));
+  const parts: [number, string][] = [[Math.floor(left / 86400), 'jours'], [Math.floor(left / 3600) % 24, 'heures'], [Math.floor(left / 60) % 60, 'minutes'], [left % 60, 'secondes']];
+  return <section className="next-gift" aria-label={`Prochain cadeau : le ${next.day} décembre`}>
+    <span className="eyebrow">LE PROCHAIN CADEAU · {next.day} DÉCEMBRE</span>
+    <div className="countdown" role="timer" aria-live="off">
+      {parts.map(([value, label]) => <div className="countdown-cell" key={label}>
+        <strong>{String(value).padStart(2, '0')}</strong><small>{value === 1 ? label.replace(/s$/, '') : label}</small>
+      </div>)}
+    </div>
+    <p>{left > 0 ? 'Encore un tout petit peu de patience…' : 'C’est l’heure ! Le cadeau arrive…'}</p>
+  </section>;
 }
