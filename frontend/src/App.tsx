@@ -157,7 +157,7 @@ function ResetPasswordPage({ token, onComplete }: { token: string; onComplete: (
     catch (cause) { setError(errorMessage(cause)); }
     finally { setBusy(false); }
   }
-  return <main id="main" className="login-layout">
+  return <main id="main" className="login-layout reset-layout">
     <section className="login-card" aria-labelledby="reset-title">
       <span className="eyebrow">VOTRE PETIT COIN DE NOËL</span>
       <h2 id="reset-title">Choisissez un nouveau mot de passe.</h2>

@@ -53,7 +53,6 @@ h1 em { font-style: italic; }
 @keyframes drift-in { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
 @keyframes pop-in { from { opacity: 0; transform: scale(.6) translateY(30px); } to { opacity: 1; transform: none; } }
 .login-card { animation: rise .8s cubic-bezier(.2, .9, .3, 1) .15s backwards; transition: transform .45s cubic-bezier(.2, .9, .3, 1), box-shadow .45s; }
-.login-card:hover { transform: translateY(-4px); box-shadow: 0 28px 70px #3a2c1a1f; }
 .login-story > .eyebrow, .login-story > h1, .login-story > p { animation: drift-in .8s cubic-bezier(.2, .9, .3, 1) backwards; }
 .login-story > h1 { animation-delay: .1s; } .login-story > p { animation-delay: .22s; }
 .login-tree { animation: pop-in 1.1s cubic-bezier(.2, 1.1, .3, 1) .3s backwards; }
@@ -173,7 +172,7 @@ h1 em { font-style: italic; }
 .admin-gifts-layout { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 26px; align-items: start; }
 .admin-people { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 14px; }
 .admin-person { display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 14px; text-align: left; border: 1px solid #e3dccb; border-radius: 14px; background: #fffdf7; cursor: pointer; transition: transform .2s, box-shadow .2s, border-color .2s; font: inherit; color: inherit; }
-.admin-person:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 22px #234a4014; }
+.admin-person:hover:not(:disabled) { border-color: #b9c9b3; }
 .admin-person[aria-pressed="true"] { border-color: #234a40; background: linear-gradient(135deg, #f1f6ea, #fffdf7); box-shadow: 0 0 0 2px #234a4026, 0 10px 24px #234a4018; }
 .admin-person-avatar { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: #234a40; color: #fff6dc; font: 600 18px Georgia, serif; }
 .admin-person-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
@@ -186,7 +185,7 @@ h1 em { font-style: italic; }
 .admin-workspace-head h2 { margin: 0; font-size: 30px; }
 .admin-day-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
 .admin-day { position: relative; width: 100%; min-height: 92px; padding: 10px 10px 8px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; border-radius: 12px; border: 1px solid #e3dccb; background: #fffdf7; cursor: pointer; font: inherit; color: #284c3c; transition: transform .18s, box-shadow .18s; overflow: hidden; }
-.admin-day:hover { transform: translateY(-3px); box-shadow: 0 10px 20px #234a4018; }
+.admin-day:hover { border-color: #b9a56a; }
 .admin-day[aria-pressed="true"] { outline: 2px solid #aa523f; outline-offset: 2px; }
 .admin-day-number { font: 600 22px Georgia, serif; }
 .admin-day-title { font-size: 11px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
@@ -268,3 +267,7 @@ h1 em { font-style: italic; }
 .admin-workspace-head { flex-wrap: wrap; gap: 10px; }
 .admin-garland { margin-top: 10px; border: 1px solid #e3dccb; border-radius: 18px; overflow: hidden; }
 .admin-garland > .snow-layer { display: none; }
+
+/* Password reset: the card sits alone, centred in the page. */
+.reset-layout { grid-template-columns: minmax(0, 460px); justify-content: center; justify-items: center; align-content: center; padding-left: 20px; padding-right: 20px; }
+.reset-layout .login-card { width: 100%; }
