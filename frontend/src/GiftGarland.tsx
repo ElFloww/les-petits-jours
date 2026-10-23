@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import type { Calendar } from './api';
 import { playGiftOpening } from './giftSound';
 import { Gingerbread, CandyCane, Mitten, SnowmanOrnament, StarOrnament, Robin } from './Illustrations';
@@ -64,6 +64,16 @@ export function GiftGarland({ days, preview, onSelect, labels, interactive = fal
   /** Lets every gift be clicked, even the locked ones (admin / debug). */ interactive?: boolean;
 }) {
   const trail = useRef<HTMLDivElement>(null);
+  // Only the gifts near the screen animate: 24 boxes + halos + sparkles running at once is what made phones lag.
+  useEffect(() => {
+    const root = trail.current;
+    if (!root || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) (entry.target as HTMLElement).toggleAttribute('data-offscreen', !entry.isIntersecting);
+    }, { rootMargin: '120px 0px' });
+    root.querySelectorAll('.gift-position').forEach(element => observer.observe(element));
+    return () => observer.disconnect();
+  }, [days.length]);
   return <div className="gift-trail" ref={trail}>
     {layouts.map(wire => <div key={wire.name} className={`garland-layer garland-${wire.name}`} aria-hidden="true">
       <svg className="garland-wire" viewBox={`0 0 1000 ${wire.height}`} preserveAspectRatio="none" fill="none">

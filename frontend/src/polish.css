@@ -271,3 +271,13 @@ h1 em { font-style: italic; }
 /* Password reset: the card sits alone, centred in the page. */
 .reset-layout { grid-template-columns: minmax(0, 460px); justify-content: center; justify-items: center; align-content: center; padding-left: 20px; padding-right: 20px; }
 .reset-layout .login-card { width: 100%; }
+
+/* ---------- Performance: animate only what is on screen, and keep touch devices light ---------- */
+.gift-position[data-offscreen] :is(.gift-sway, .gift-tie, .box3d, .gift-halo, .gift-halo i, .box-magic i, .box-magic::before) { animation-play-state: paused !important; }
+.gift-position[data-offscreen] .gift-halo { visibility: hidden; }
+@media (hover: none), (max-width: 760px) {
+  .gift-btn.available .box3d { animation: none; }
+  .gift-halo { animation: none; opacity: .85; }
+  .gift-halo i, .box-magic i { filter: none; }
+  .garland-canvas { filter: none; }
+}
