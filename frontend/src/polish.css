@@ -281,3 +281,7 @@ h1 em { font-style: italic; }
   .gift-halo i, .box-magic i { filter: none; }
   .garland-canvas { filter: none; }
 }
+
+/* Pleine largeur : plus de bordures visibles sur les côtés */
+html, body { background: #fbf7ec; }
+.app-shell { max-width: none; width: 100%; margin: 0; box-shadow: none; }
