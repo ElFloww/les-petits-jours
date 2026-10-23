@@ -19,7 +19,12 @@ public interface IImageConverter
 {
     /// <returns>Chemin d'un JPEG, ou <c>null</c> si la conversion est indisponible ou échoue.</returns>
     Task<string?> ToJpeg(string inputPath, string contentType, CancellationToken ct);
+
+    /// <summary>Allège une image déjà affichable (1600 px max). JPEG reste JPEG ; PNG et WebP deviennent du WebP (transparence conservée).</summary>
+    Task<ConvertedImage?> Shrink(string inputPath, string contentType, CancellationToken ct);
 }
+
+public sealed record ConvertedImage(string Path, string ContentType);
 
 public interface IGiftMedia
 {

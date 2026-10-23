@@ -1,7 +1,7 @@
-// Allège une photo avant l'envoi : redimensionnée (2560 px max) puis ré-encodée en WebP.
+// Allège une photo avant l'envoi : redimensionnée (1600 px max) puis ré-encodée en WebP.
 // Seuls JPG, PNG et WebP sont traités ici ; HEIC, BMP, TIFF… sont convertis par le serveur. En cas de doute (GIF animé, navigateur sans WebP, gain nul, erreur…), le fichier d'origine est conservé.
-const MAX_SIDE = 2560;
-const QUALITY = 0.85;
+const MAX_SIDE = 1600;
+const QUALITY = 0.8;
 
 export async function compressImage(file: File): Promise<File> {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || typeof createImageBitmap !== 'function') return file;

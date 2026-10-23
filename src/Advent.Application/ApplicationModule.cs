@@ -18,6 +18,7 @@ public sealed class ApplicationModule : Module
         builder.RegisterGeneric(typeof(ValidationBehavior<,>)).As(typeof(IPipelineBehavior<,>)).InstancePerLifetimeScope();
         builder.RegisterType<EntryReader>().As<IEntryReader>().InstancePerLifetimeScope();
         builder.RegisterType<GiftMedia>().As<IGiftMedia>().InstancePerLifetimeScope();
+        builder.RegisterType<MediaOptimizer>().As<IMediaOptimizer>().InstancePerLifetimeScope();
         builder.RegisterType<PasswordResetLinkService>().InstancePerLifetimeScope();
     }
 }

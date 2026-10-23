@@ -115,6 +115,20 @@ public static class AdministrationEndpoints
             return TypedResults.File(file.Data, file.ContentType, enableRangeProcessing: true);
         }).WithName("ReadManagedGiftMedia").WithSummary("Lire un média privé dans l’éditeur administrateur.")
             .Produces(200).Produces(206).ProducesProblem(400).ProducesProblem(404);
+
+        var mediaGroup = app.MapGroup("/api/admin/media")
+            .RequireAuthorization(policy => policy.RequireClaim("admin", "true"))
+            .WithTags("Administration des médias");
+
+        mediaGroup.MapGet("/", async (IMediaOptimizer optimizer, CancellationToken ct) =>
+            TypedResults.Ok(await optimizer.List(ct)))
+            .WithName("ListMedia").WithSummary("Lister les médias stockés avec leur poids.");
+
+        mediaGroup.MapPost("/{id:guid}/optimize", async (Guid id, IMediaOptimizer optimizer, CancellationToken ct) =>
+            TypedResults.Ok(await optimizer.Optimize(id, ct)))
+            .AddEndpointFilter<CsrfFilter>()
+            .WithName("OptimizeMedia").WithSummary("Recompresser un média déjà stocké (même identifiant).")
+            .ProducesProblem(404);
     }
 }
 

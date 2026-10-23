@@ -6,9 +6,9 @@ using Microsoft.Extensions.Configuration;
 namespace Advent.Infrastructure;
 
 /// <summary>
-/// Recompresse les vidéos en MP4 H.264/AAC (720p max) avec ffmpeg quand il est installé.
+/// Recompresse les vidéos en MP4 H.264/AAC (petit côté limité à 540 px : la fenêtre d'ouverture ne dépasse pas 530 px) avec ffmpeg quand il est installé.
 /// Sans ffmpeg, ou si le résultat n'est pas plus léger, une vidéo MP4/WebM est conservée telle quelle ; les autres formats (MOV, MKV, AVI, 3GP) exigent la conversion.
-/// Réglages optionnels : <c>Media:VideoCompression</c> (false pour désactiver), <c>Media:FfmpegPath</c>, <c>Media:VideoMaxWidth</c>, <c>Media:VideoCrf</c>.
+/// Réglages optionnels : <c>Media:VideoCompression</c> (false pour désactiver), <c>Media:FfmpegPath</c>, <c>Media:VideoMaxShortSide</c>, <c>Media:VideoCrf</c>.
 /// </summary>
 public sealed class FfmpegVideoCompressor(IConfiguration configuration) : IVideoCompressor
 {
@@ -20,8 +20,8 @@ public sealed class FfmpegVideoCompressor(IConfiguration configuration) : IVideo
     {
         if (string.Equals(configuration["Media:VideoCompression"], "false", StringComparison.OrdinalIgnoreCase)) return null;
         var ffmpeg = configuration["Media:FfmpegPath"] is { Length: > 0 } path ? path : "ffmpeg";
-        var maxWidth = int.TryParse(configuration["Media:VideoMaxWidth"], out var width) && width >= 320 ? width : 1280;
-        var crf = int.TryParse(configuration["Media:VideoCrf"], out var quality) && quality is >= 18 and <= 35 ? quality : 26;
+        var shortSide = int.TryParse(configuration["Media:VideoMaxShortSide"], out var side) && side >= 240 ? side : 540;
+        var crf = int.TryParse(configuration["Media:VideoCrf"], out var quality) && quality is >= 18 and <= 38 ? quality : 28;
         var output = Path.Combine(Path.GetDirectoryName(inputPath) ?? Path.GetTempPath(), $"{Path.GetFileNameWithoutExtension(inputPath)}.compressed.mp4");
 
         await Gate.WaitAsync(ct);
@@ -31,8 +31,8 @@ public sealed class FfmpegVideoCompressor(IConfiguration configuration) : IVideo
             foreach (var argument in new[]
             {
                 "-hide_banner", "-loglevel", "error", "-nostdin", "-y", "-i", inputPath,
-                "-vf", $"scale='min({maxWidth},iw)':-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", crf.ToString(),
-                "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", "-map_metadata", "-1",
+                "-vf", $"scale=w='if(gt(iw,ih),-2,min({shortSide},iw))':h='if(gt(iw,ih),min({shortSide},ih),-2)'", "-c:v", "libx264", "-preset", "medium", "-crf", crf.ToString(),
+                "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", "-map_metadata", "-1",
                 "-threads", "2", output
             }) info.ArgumentList.Add(argument);
 

@@ -98,6 +98,11 @@ public sealed class MediaRepository(AdventDbContext db) : IMediaRepository
         db.CalendarMedia.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == userId && x.Day == day && x.Id == id, ct);
     public Task<bool> Exists(Guid userId, int day, Guid id, string type, CancellationToken ct) =>
         db.CalendarMedia.AnyAsync(x => x.UserId == userId && x.Day == day && x.Id == id && x.ContentType.StartsWith(type + "/"), ct);
+    public async Task<IReadOnlyList<MediaInfo>> List(CancellationToken ct) =>
+        await db.CalendarMedia.AsNoTracking().OrderBy(x => x.UserId).ThenBy(x => x.Day)
+            .Select(x => new MediaInfo(x.Id, x.UserId, x.Day, x.ContentType, x.Data.Length)).ToListAsync(ct);
+    public Task<CalendarMedia?> FindForUpdate(Guid id, CancellationToken ct) =>
+        db.CalendarMedia.SingleOrDefaultAsync(x => x.Id == id, ct);
 }
 
 public sealed class SessionRepository(AdventDbContext db) : ISessionRepository

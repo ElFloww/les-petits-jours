@@ -118,6 +118,9 @@ async function uploadMediaAt(path: string, file: File): Promise<{ mediaId: strin
   });
 }
 
+export type MediaInfo = { id: string; userId: string; day: number; contentType: string; bytes: number };
+export type OptimizeResult = { mediaId: string; contentType: string; before: number; after: number; changed: boolean; reason?: string | null };
+
 export const api = {
   me: () => request<Account>('/auth/me'),
   calendar: () => request<Calendar>('/calendar/'),
@@ -158,6 +161,8 @@ export const api = {
     saveGiftAt(`/preview/calendar/${content.day}`, content, publish),
   saveAdminGift: (userId: string, content: GiftDraft, publish: boolean) =>
     saveGiftAt(`/admin/gifts/${userId}/${content.day}`, content, publish),
+  adminMedia: (signal?: AbortSignal) => request<MediaInfo[]>('/admin/media', { signal }),
+  optimizeMedia: (id: string) => mutateWithoutBody<OptimizeResult>(`/admin/media/${id}/optimize`, 'POST'),
   uploadMedia: (day: number, file: File) =>
     uploadMediaAt(`/preview/calendar/${day}/media`, file),
   uploadAdminGiftMedia: (userId: string, day: number, file: File) =>

@@ -11,6 +11,7 @@ import { GiftGarland } from './GiftGarland';
 import { GiftContent } from './GiftContent';
 import { GiftEditor } from './GiftEditor';
 import { AdminGiftManager } from './AdminGiftManager';
+import { AdminMediaOptimizer } from './AdminMediaOptimizer';
 
 
 export default function App() {
@@ -177,7 +178,7 @@ function ResetPasswordPage({ token, onComplete }: { token: string; onComplete: (
 }
 
 function AdminPage({ account, onBack, onExpired }: { account: Account; onBack: () => void; onExpired: () => void }) {
-  const [section, setSection] = useState<'accounts' | 'gifts'>('accounts');
+  const [section, setSection] = useState<'accounts' | 'gifts' | 'media'>('accounts');
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -234,13 +235,15 @@ function AdminPage({ account, onBack, onExpired }: { account: Account; onBack: (
     </div>
     <section className="calendar-intro">
       <span className="eyebrow"><span /> ESPACE PRIVÉ</span>
-      <h1>{section === 'accounts' ? 'Gestion des comptes' : 'Gestion des cadeaux'}</h1>
+      <h1>{section === 'accounts' ? 'Gestion des comptes' : section === 'gifts' ? 'Gestion des cadeaux' : 'Gestion des médias'}</h1>
       <p>{section === 'accounts' ? 'Créez, modifiez et désactivez les accès au calendrier.'
-        : 'Préparez et publiez les cadeaux de toutes les personnes.'}</p>
+        : section === 'gifts' ? 'Préparez et publiez les cadeaux de toutes les personnes.'
+        : 'Allégez les photos et vidéos déjà importées pour économiser de la place.'}</p>
     </section>
     <nav className="admin-navigation" aria-label="Sections d’administration">
       <button type="button" aria-pressed={section === 'accounts'} onClick={() => setSection('accounts')}>Comptes</button>
       <button type="button" aria-pressed={section === 'gifts'} onClick={() => setSection('gifts')}>Cadeaux</button>
+      <button type="button" aria-pressed={section === 'media'} onClick={() => setSection('media')}>Médias</button>
     </nav>
     {section === 'accounts' ? <>
       {error && <div className="form-error" role="alert">{error}</div>}
@@ -285,7 +288,8 @@ function AdminPage({ account, onBack, onExpired }: { account: Account; onBack: (
           }}>Supprimer définitivement</button>
       </article>)}
     </section>
-    </> : <AdminGiftManager users={users} onExpired={onExpired} />}
+    </> : section === 'gifts' ? <AdminGiftManager users={users} onExpired={onExpired} />
+      : <AdminMediaOptimizer users={users} onExpired={onExpired} />}
   </main>;
 }
 

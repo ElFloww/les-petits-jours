@@ -35,6 +35,8 @@ public interface IMediaRepository
     void Add(CalendarMedia media);
     Task<CalendarMedia?> Find(Guid userId, int day, Guid id, CancellationToken ct);
     Task<bool> Exists(Guid userId, int day, Guid id, string type, CancellationToken ct);
+    Task<IReadOnlyList<MediaInfo>> List(CancellationToken ct);
+    Task<CalendarMedia?> FindForUpdate(Guid id, CancellationToken ct);
 }
 
 public interface ISessionRepository
