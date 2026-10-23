@@ -250,16 +250,18 @@ h1 em { font-style: italic; }
 @media (prefers-reduced-motion: reduce) { .candle-flame, .candle-glow { animation: none !important; } }
 
 /* ---------- Countdown & debug ---------- */
-.next-gift { margin: 28px auto 0; padding: 22px 26px 20px; width: min(100% - 40px, 560px); text-align: center; border-radius: 22px; border: 1px solid #e3d6b4; background: radial-gradient(ellipse at 50% 0, #fffdf3, #f8efd6); box-shadow: 0 14px 34px #8a6a1f1c, inset 0 1px 0 #fff; position: relative; }
-.next-gift p { margin: 12px 0 0; font: italic 15px Georgia, serif; color: #6f6745; }
-.countdown { display: flex; justify-content: center; gap: 10px; margin-top: 14px; }
-.countdown-cell { min-width: 72px; padding: 10px 6px 8px; border-radius: 14px; background: linear-gradient(160deg, #1d4a3d, #12362c); color: #fff4d2; box-shadow: 0 8px 16px #0e2a2233, inset 0 1px 0 #ffffff22; }
-.countdown-cell strong { display: block; font: 600 30px/1 Georgia, serif; font-variant-numeric: tabular-nums; }
-.countdown-cell small { display: block; margin-top: 4px; font-size: 9.5px; letter-spacing: 1.3px; text-transform: uppercase; color: #e9c77e; }
+.next-gift { margin: 34px auto 0; padding: 0 20px; width: min(100%, 640px); text-align: center; background: none; border: 0; box-shadow: none; }
+.next-gift .eyebrow { font-size: 10px; letter-spacing: 3px; color: #967535; }
+.countdown { display: flex; justify-content: center; align-items: flex-start; gap: 0; margin: 14px 0 4px; }
+.countdown-cell { position: relative; min-width: 96px; padding: 0 14px; background: none; box-shadow: none; color: #234a40; }
+.countdown-cell + .countdown-cell::before { content: ""; position: absolute; left: 0; top: 10px; height: 38px; width: 1px; background: linear-gradient(transparent, #b8923f88, transparent); }
+.countdown-cell strong { display: block; font: 400 clamp(40px, 6vw, 58px)/1 'Fraunces Variable', Georgia, serif; font-variant-numeric: tabular-nums; letter-spacing: -1px; color: #234a40; }
+.countdown-cell small { display: block; margin-top: 8px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #aa523f; }
+.next-gift p { margin: 12px 0 0; font: italic 16px Georgia, serif; color: #6f6745; }
 .debug-controls { border-color: #aa523f; }
 .debug-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
 .debug-toggle[aria-pressed="true"] { color: #aa523f; font-weight: 700; }
-@media (max-width: 520px) { .countdown { gap: 6px; } .countdown-cell { min-width: 62px; } .countdown-cell strong { font-size: 24px; } }
+@media (max-width: 520px) { .countdown-cell { min-width: 0; flex: 1; padding: 0 6px; } .countdown-cell strong { font-size: 34px; } .countdown-cell small { font-size: 8.5px; letter-spacing: 1.2px; } }
 .admin-view-switch { display: inline-flex; border: 1px solid #c9b78f; border-radius: 999px; overflow: hidden; background: #fffdf7; }
 .admin-view-switch button { padding: 8px 16px; border: 0; background: none; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; color: #284c3c; }
 .admin-view-switch button[aria-pressed="true"] { background: #234a40; color: #fffdf7; }
