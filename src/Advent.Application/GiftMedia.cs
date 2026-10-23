@@ -35,12 +35,17 @@ public interface IGiftMedia
 public sealed class GiftMedia(IMediaRepository media, IEntryReader entries, IUnitOfWork uow,
     IVideoCompressor? compressor = null, IImageConverter? imageConverter = null) : IGiftMedia
 {
+    /// <summary>Taille maximale d'un fichier stocké en base (audio, ou vidéo après compression).</summary>
     public const int MaxBytes = 300 * 1024 * 1024;
+    /// <summary>Taille maximale d'une vidéo envoyée : elle est écrite sur disque puis compressée, seul le résultat va en base.</summary>
+    public const long MaxVideoSourceBytes = 10L * 1024 * 1024 * 1024;
+    /// <summary>Plafond de la requête HTTP (le contrôle précis se fait ensuite selon le type).</summary>
+    public const long MaxUploadBytes = MaxVideoSourceBytes;
     public const int MaxImageBytes = 40 * 1024 * 1024;
     /// <summary>Taille maximale d'une image à convertir (un TIFF ou un BMP peut être très lourd avant conversion).</summary>
     public const int MaxImageSourceBytes = 100 * 1024 * 1024;
 
-    private const string TooLarge = "Fichier trop volumineux : 40 Mo par image, 300 Mo par vidéo ou audio.";
+    private const string TooLarge = "Fichier trop volumineux : 40 Mo par image, 300 Mo par audio, 10 Go par vidéo.";
 
     private static readonly HashSet<string> Images = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif",
         "image/heic", "image/heif", "image/bmp", "image/tiff"];
@@ -78,16 +83,16 @@ public sealed class GiftMedia(IMediaRepository media, IEntryReader entries, IUni
     private async Task<UploadedMediaResponse> UploadConverted(Guid userId, int day, string contentType, Stream source, CancellationToken ct)
     {
         var isVideo = Videos.Contains(contentType);
-        var limit = isVideo ? MaxBytes : MaxImageSourceBytes;
+        long limit = isVideo ? MaxVideoSourceBytes : MaxImageSourceBytes;
         var input = Path.Combine(Path.GetTempPath(), $"petits-jours-{Guid.NewGuid():N}.upload");
         string? converted = null;
         try
         {
             var header = new byte[16];
             var headerLength = 0;
-            await using (var file = new FileStream(input, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+            await using (var file = new FileStream(input, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 1024, useAsync: true))
             {
-                var chunk = new byte[81920];
+                var chunk = new byte[1024 * 1024];
                 long total = 0;
                 int read;
                 while ((read = await source.ReadAsync(chunk, ct)) > 0)
@@ -115,6 +120,8 @@ public sealed class GiftMedia(IMediaRepository media, IEntryReader entries, IUni
                 if (converted is not null) { path = converted; finalType = "video/mp4"; }
                 else if (!keep)
                     throw new AppException(415, "Cette vidéo n'a pas pu être convertie (format illisible ou conversion indisponible). Essaie un fichier MP4.");
+                if (new FileInfo(path).Length > MaxBytes)
+                    throw new AppException(413, "Cette vidéo dépasse encore 300 Mo après compression : raccourcis-la ou réduis sa définition avant l'envoi.");
             }
             else
             {

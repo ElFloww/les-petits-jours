@@ -98,10 +98,10 @@ public static class AdministrationEndpoints
         gifts.MapPost("/{userId:guid}/{day:int}/media", async (
             Guid userId, int day, HttpRequest request, IGiftMedia media, CancellationToken ct) =>
         {
-            if (request.ContentLength > GiftMedia.MaxBytes)
-                throw new AppException(413, "Fichier trop volumineux : 300 Mo maximum.");
+            if (request.ContentLength > GiftMedia.MaxUploadBytes)
+                throw new AppException(413, "Fichier trop volumineux : 10 Go maximum.");
             var limit = request.HttpContext.Features.Get<IHttpMaxRequestBodySizeFeature>();
-            if (limit is { IsReadOnly: false }) limit.MaxRequestBodySize = GiftMedia.MaxBytes;
+            if (limit is { IsReadOnly: false }) limit.MaxRequestBodySize = GiftMedia.MaxUploadBytes;
             var uploaded = await media.Upload(userId, day, request.ContentType ?? "", request.Body, ct);
             return TypedResults.Created($"/api/admin/gifts/{userId}/{day}/media/{uploaded.MediaId}", uploaded);
         }).AddEndpointFilter<CsrfFilter>()

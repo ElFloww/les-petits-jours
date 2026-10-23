@@ -260,7 +260,7 @@ doivent utiliser un codec pris en charge par les navigateurs destinataires (par 
 | Média | Formats | Taille maximale par fichier |
 |---|---|---|
 | Image | JPG, PNG, WebP, GIF, AVIF, HEIC/HEIF (iPhone, converti en JPEG), BMP, TIFF | 40 Mo (recompressée en WebP, 1600 px max, dans le navigateur ; HEIC/BMP/TIFF : JPEG 1600 px côté serveur) |
-| Vidéo | MP4, MOV (iPhone), WebM, MKV, AVI, 3GP | 300 Mo (recompressée côté serveur avec ffmpeg en MP4 H.264, petit côté 540 px, CRF 28) |
+| Vidéo | MP4, MOV (iPhone), WebM, MKV, AVI, 3GP | 10 Go envoyés (recompressée côté serveur avec ffmpeg en MP4 H.264, petit côté 540 px, CRF 28) ; 300 Mo maximum stockés après compression |
 | Audio | MP3, M4A, AAC, WAV, OGG, FLAC | 300 Mo |
 
 Les fichiers sont stockés dans **CalendarMedia**, dans la même base SQL que les cadeaux :

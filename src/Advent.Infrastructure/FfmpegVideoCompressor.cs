@@ -14,7 +14,6 @@ public sealed class FfmpegVideoCompressor(IConfiguration configuration) : IVideo
 {
     // Une seule recompression à la fois : ffmpeg est gourmand en processeur.
     private static readonly SemaphoreSlim Gate = new(1, 1);
-    private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(20);
 
     public async Task<string?> Compress(string inputPath, bool force, CancellationToken ct)
     {
@@ -24,6 +23,8 @@ public sealed class FfmpegVideoCompressor(IConfiguration configuration) : IVideo
         var crf = int.TryParse(configuration["Media:VideoCrf"], out var quality) && quality is >= 18 and <= 38 ? quality : 28;
         var output = Path.Combine(Path.GetDirectoryName(inputPath) ?? Path.GetTempPath(), $"{Path.GetFileNameWithoutExtension(inputPath)}.compressed.mp4");
 
+        var timeoutMinutes = int.TryParse(configuration["Media:VideoTimeoutMinutes"], out var minutes) && minutes > 0 ? minutes : 120;
+        var timeoutSpan = TimeSpan.FromMinutes(timeoutMinutes);
         await Gate.WaitAsync(ct);
         try
         {
@@ -45,7 +46,7 @@ public sealed class FfmpegVideoCompressor(IConfiguration configuration) : IVideo
             {
                 var errors = process.StandardError.ReadToEndAsync(CancellationToken.None);
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                timeout.CancelAfter(Timeout);
+                timeout.CancelAfter(timeoutSpan);
                 try
                 {
                     await process.WaitForExitAsync(timeout.Token);

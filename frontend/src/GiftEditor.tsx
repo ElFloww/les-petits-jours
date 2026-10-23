@@ -66,10 +66,10 @@ export function GiftEditor({
     if (block.type === 'text' || block.type === 'quote') return;
     setError('');
     const limit = block.type === 'image' ? 40 : 300;
-    const sourceLimit = block.type === 'image' ? 120 : 300;
+    const sourceLimit = block.type === 'image' ? 120 : block.type === 'video' ? 10 * 1024 : 300;
     const type = resolveMediaType(file, block.type);
     if (!type || file.size > sourceLimit * 1024 * 1024 || file.size === 0) {
-      setError(type ? `Choisis un fichier non vide, de ${sourceLimit} Mo maximum.`
+      setError(type ? `Choisis un fichier non vide, de ${sourceLimit >= 1024 ? `${sourceLimit / 1024} Go` : `${sourceLimit} Mo`} maximum.`
         : `Format non pris en charge pour ce bloc (${blockNames[block.type].toLowerCase()}). Formats acceptés : ${formatsHelp[block.type]}.`);
       return;
     }
@@ -85,7 +85,7 @@ export function GiftEditor({
           return;
         }
       }
-      setNotice(block.type === 'video' ? 'Import de la vidéo en cours… (elle est allégée pendant l’import, cela peut prendre quelques minutes)' : 'Import du média en cours…');
+      setNotice(block.type === 'video' ? 'Import de la vidéo en cours… (elle est allégée pendant l’import : compte plusieurs minutes pour une grosse vidéo, et garde la page ouverte)' : 'Import du média en cours…');
       const media = await onUpload(toSend);
       updateBlock(index, { type: block.type, mediaId: media.mediaId, caption: block.caption || file.name.replace(/\.[^.]+$/, '') });
       setNotice('Média importé. Enregistre le brouillon pour le conserver dans ce cadeau.');
@@ -160,7 +160,7 @@ export function GiftEditor({
             </> : <>
               <label className="upload-zone" htmlFor={`block-file-${index}`}>
                 <ArrowUp /><strong>{block.mediaId ? 'Remplacer le fichier' : `Importer ${block.type === 'image' ? 'une image' : block.type === 'video' ? 'une vidéo' : 'un audio'}`}</strong>
-                <span>{block.type === 'image' ? 'JPG, PNG, HEIC, WebP, GIF, AVIF… · 40 Mo max.' : block.type === 'video' ? 'MP4, MOV, WebM, MKV, AVI… · 300 Mo max.' : 'MP3, M4A, WAV, OGG, FLAC… · 300 Mo max.'}</span>
+                <span>{block.type === 'image' ? 'JPG, PNG, HEIC, WebP, GIF, AVIF… · 40 Mo max.' : block.type === 'video' ? 'MP4, MOV, WebM, MKV, AVI… · 10 Go max.' : 'MP3, M4A, WAV, OGG, FLAC… · 300 Mo max.'}</span>
                 <input id={`block-file-${index}`} type="file" accept={acceptAttribute[block.type]} onChange={event => {
                   const file = event.target.files?.[0];
                   if (file) void upload(index, file);
