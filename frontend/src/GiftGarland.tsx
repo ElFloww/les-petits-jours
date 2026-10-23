@@ -112,7 +112,7 @@ export function GiftGarland({ days, preview, onSelect, labels, interactive = fal
             </span>
           </button>
         </div>
-        <span className={`gift-caption caption-${shown}`}>{labels?.[day] ?? (preview ? 'Prévisualiser' : state === 'locked' ? `${day} décembre` : stateLabels[state])}</span>
+        {(labels?.[day] ?? (preview ? 'Prévisualiser' : state === 'locked' ? '' : stateLabels[state])) !== '' && <span className={`gift-caption caption-${shown}`}>{labels?.[day] ?? (preview ? 'Prévisualiser' : stateLabels[state])}</span>}
       </div>;
     })}
   </div>;
