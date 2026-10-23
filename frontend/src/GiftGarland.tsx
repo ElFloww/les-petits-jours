@@ -1,9 +1,8 @@
 import { useRef, type CSSProperties, type ReactNode } from 'react';
 import type { Calendar } from './api';
 import { playGiftOpening } from './giftSound';
-import { Lock, Gingerbread, CandyCane, Mitten, SnowmanOrnament, StarOrnament, Robin } from './Illustrations';
+import { Gingerbread, CandyCane, Mitten, SnowmanOrnament, StarOrnament, Robin } from './Illustrations';
 import { GiftBox } from './GiftBox';
-import { ArrowUpRight, Check } from './Icons';
 import { Bulb } from './Festive';
 import { GarlandCanvas } from './GarlandCanvas';
 import { bezier, segment, type Point } from './garlandMath';
@@ -108,11 +107,10 @@ export function GiftGarland({ days, preview, onSelect, labels, interactive = fal
             <span className="gift-sway" aria-hidden="true">
               {shown === 'available' && <span className="gift-halo"><i /><i /><i /></span>}
               <GiftBox variant={day % 6} label={String(day).padStart(2, '0')} state={shown} />
-              <span className="gift-badge">{preview ? <ArrowUpRight /> : state === 'locked' ? <Lock /> : state === 'opened' ? <Check /> : <ArrowUpRight />}</span>
             </span>
           </button>
         </div>
-        {(labels?.[day] ?? (preview ? 'Prévisualiser' : state === 'locked' ? '' : stateLabels[state])) !== '' && <span className={`gift-caption caption-${shown}`}>{labels?.[day] ?? (preview ? 'Prévisualiser' : stateLabels[state])}</span>}
+        {labels?.[day] && <span className={`gift-caption caption-${shown}`}>{labels[day]}</span>}
       </div>;
     })}
   </div>;
