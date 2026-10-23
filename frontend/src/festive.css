@@ -263,7 +263,14 @@ progress::-moz-progress-bar { border-radius: 8px; background: repeating-linear-g
   82% { transform: var(--base) translateY(-5px) rotateZ(4deg); }
   86% { transform: var(--base) translateY(0) rotateZ(-2deg); }
 }
-.gift-btn:not(:disabled):hover .box3d, .gift-btn:not(:disabled):focus-visible .box3d { animation: none; transform: rotateX(-28deg) rotateY(calc(var(--ry) + 32deg)) translateY(-10px) scale3d(1.08, 1.08, 1.08); }
+.gift-btn:not(:disabled):hover .box3d, .gift-btn:not(:disabled):focus-visible .box3d { animation: gift-hop .7s cubic-bezier(.3, .7, .3, 1) forwards; }
+@keyframes gift-hop {
+  0% { transform: var(--base); }
+  25% { transform: var(--base) translateY(-16px) scale3d(.96, 1.06, .96) rotateZ(-4deg); }
+  50% { transform: var(--base) translateY(-4px) scale3d(1.06, .95, 1.06) rotateZ(3deg); }
+  75% { transform: var(--base) translateY(-12px) rotateZ(-2deg); }
+  100% { transform: var(--base) translateY(-9px) scale3d(1.06, 1.06, 1.06); }
+}
 .gift-btn.available:hover .box-lid, .gift-btn.available:focus-visible .box-lid { transform: translate3d(0, -12px, 0) rotateZ(-5deg); }
 .gift-btn.opened:hover .box-lid { transform: translate3d(34px, -42px, 8px) rotateZ(34deg) rotateX(-8deg); }
 .gift-btn:active:not(:disabled) .box3d { transform: rotateX(-20deg) rotateY(var(--ry)) scale3d(.94, .94, .94); transition-duration: .12s; }

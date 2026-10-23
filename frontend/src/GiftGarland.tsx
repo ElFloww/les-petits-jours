@@ -1,5 +1,6 @@
 import { useRef, type CSSProperties, type ReactNode } from 'react';
 import type { Calendar } from './api';
+import { playGiftOpening } from './giftSound';
 import { Lock, Gingerbread, CandyCane, Mitten, SnowmanOrnament, StarOrnament, Robin } from './Illustrations';
 import { GiftBox } from './GiftBox';
 import { ArrowUpRight, Check } from './Icons';
@@ -58,8 +59,10 @@ const layouts = [
   { name: 'mobile', height: mobileHeight, points: mobilePoints, path: garlandPath(mobilePoints), ...layout(mobilePoints) },
 ];
 
-export function GiftGarland({ days, preview, onSelect }: {
+export function GiftGarland({ days, preview, onSelect, labels, interactive = false }: {
   days: Calendar['days']; preview: boolean; onSelect: (day: number) => void;
+  /** Overrides the caption under each gift (admin view). */ labels?: Record<number, string>;
+  /** Lets every gift be clicked, even the locked ones (admin / debug). */ interactive?: boolean;
 }) {
   const trail = useRef<HTMLDivElement>(null);
   return <div className="gift-trail" ref={trail}>
@@ -100,8 +103,8 @@ export function GiftGarland({ days, preview, onSelect }: {
         <div className="gift-hang">
           <span className="gift-tie" aria-hidden="true" />
           {/* The button itself stays still (stable hit target); only its visual content sways on the tie. */}
-          <button className={`gift-btn ${shown}`} disabled={!preview && state === 'locked'}
-            aria-label={`${day} décembre — ${preview ? 'Prévisualiser' : stateLabels[state]}`} onClick={() => onSelect(day)}>
+          <button className={`gift-btn ${shown}`} disabled={!preview && !interactive && state === 'locked'}
+            aria-label={`${day} décembre — ${labels?.[day] ?? (preview ? 'Prévisualiser' : stateLabels[state])}`} onClick={() => { if (state !== 'locked' || preview || interactive) playGiftOpening(); onSelect(day); }}>
             <span className="gift-sway" aria-hidden="true">
               {shown === 'available' && <span className="gift-halo"><i /><i /><i /></span>}
               <GiftBox variant={day % 6} label={String(day).padStart(2, '0')} state={shown} />
@@ -109,7 +112,7 @@ export function GiftGarland({ days, preview, onSelect }: {
             </span>
           </button>
         </div>
-        <span className={`gift-caption caption-${shown}`}>{preview ? 'Prévisualiser' : state === 'locked' ? `${day} décembre` : stateLabels[state]}</span>
+        <span className={`gift-caption caption-${shown}`}>{labels?.[day] ?? (preview ? 'Prévisualiser' : state === 'locked' ? `${day} décembre` : stateLabels[state])}</span>
       </div>;
     })}
   </div>;

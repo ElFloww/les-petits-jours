@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { api, ApiError, errorMessage, type Account, type Calendar, type Entry, type ManagedUser, type PreviewEntry } from './api';
-import { ChristmasSprig, Lock, Sleigh, Star, Village } from './Illustrations';
+import { Lock, Sleigh, Star, Village } from './Illustrations';
+import { Bow, DecorBough, Holly, Mantel, Pinecone, Wreath, cornerBough } from './Decor';
 import { Confetti, HeaderLights, MiniLights, Snowfall } from './Festive';
 import { GiftBox } from './GiftBox';
 import { ArrowLeft, ArrowRight, ArrowUpRight, Close, Refresh, Snowflake, Sparkle } from './Icons';
 import { Tree3D } from './Tree3D';
+import { isSoundMuted, onSoundMuteChange, setSoundMuted } from './giftSound';
 import { GiftGarland } from './GiftGarland';
 import { GiftContent } from './GiftContent';
 import { GiftEditor } from './GiftEditor';
@@ -107,6 +109,7 @@ function LoginPage({ notice, onLogin }: { notice: string; onLogin: (account: Acc
       </div>
     </section>
     <section className="login-card" aria-labelledby="welcome">
+      <div className="card-wreath" aria-hidden="true"><Wreath size={170} /></div>
       <span className="card-star" aria-hidden="true"><Sparkle /></span>
       <span className="eyebrow">VOTRE PETIT COIN DE NOËL</span>
       <h2 id="welcome">{forgot ? 'Un nouveau mot de passe ?' : 'Entrez, il fait bon ici.'}</h2>
@@ -323,12 +326,28 @@ function CalendarPage({ account, onAdmin, onExpired, onLogout }: { account: Acco
   return <main id="main" className="calendar-page">
     <div className="account-bar"><span><span className="avatar">{account.displayName[0]}</span>Le calendrier de <strong>{account.displayName}</strong></span>
       <span className="account-actions">
+        <SoundToggle />
         {account.isAdmin && <button className="text-button" onClick={onAdmin}>Administration</button>}
         <button className="text-button" onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'Déconnexion…' : 'Se déconnecter'} <ArrowUpRight /></button>
       </span>
     </div>
     <section className="calendar-intro">
-      <ChristmasSprig className="christmas-sprig sprig-left" /><ChristmasSprig className="christmas-sprig sprig-right" />
+      <div className="intro-bough intro-bough-left" aria-hidden="true">
+        <DecorBough width={420} height={300} points={cornerBough}>
+          <Pinecone className="decor-item" style={{ left: '40%', top: '34%', width: 40, transform: 'rotate(-58deg)' }} />
+          <Holly className="decor-item" style={{ left: '56%', top: '52%', width: 112, transform: 'rotate(8deg)' }} />
+          <Holly className="decor-item" style={{ left: '20%', top: '8%', width: 84, transform: 'rotate(-20deg)' }} />
+          <Bow className="decor-item" style={{ left: '8%', top: '2%', width: 96 }} />
+        </DecorBough>
+      </div>
+      <div className="intro-bough intro-bough-right" aria-hidden="true">
+        <DecorBough width={420} height={300} points={cornerBough} flip>
+          <Pinecone className="decor-item" style={{ left: '40%', top: '34%', width: 40, transform: 'rotate(-58deg)' }} />
+          <Holly className="decor-item" style={{ left: '56%', top: '52%', width: 112, transform: 'rotate(8deg)' }} />
+          <Holly className="decor-item" style={{ left: '20%', top: '8%', width: 84, transform: 'rotate(-20deg)' }} />
+          <Bow className="decor-item" style={{ left: '8%', top: '2%', width: 96 }} />
+        </DecorBough>
+      </div>
       <div className="christmas-ornaments" aria-hidden="true"><span /><span /><span /></div>
       <span className="eyebrow"><span /> DU 1ER AU 24 DÉCEMBRE</span>
       <h1>Un peu de magie,<br /><em>rien que pour toi, {account.displayName}.</em></h1>
@@ -358,12 +377,13 @@ function CalendarPage({ account, onAdmin, onExpired, onLogout }: { account: Acco
       </section>
       <section className="gift-landscape garland-landscape night-landscape" aria-label="Les 24 cadeaux de décembre">
         <Snowfall layer="back" count={40} />
-        <div className="garland-heading"><span className="eyebrow">UNE GUIRLANDE DE PETITS BONHEURS</span><p>Suis le fil de la magie.</p><Star /></div>
+        <div className="garland-heading"><Holly className="heading-holly hl-left" /><Holly className="heading-holly hl-right" /><span className="eyebrow">UNE GUIRLANDE DE PETITS BONHEURS</span><p>Suis le fil de la magie.</p><Star /></div>
         <GiftGarland days={calendar.days} preview={preview} onSelect={setSelected} />
         <Snowfall layer="front" count={14} />
         <Village />
       </section>
       <div className="daily-note"><Star /><p>{calendar.decoration}</p><Star /></div>
+      <Mantel />
       {selected !== null && (!preview || calendar.canPreview) && <SurpriseDialog day={selected} calendar={calendar} preview={preview} onSelect={setSelected}
         onClose={() => setSelected(null)} onExpired={onExpired} onOpened={day =>
           setCalendar(current => current && ({ ...current, days: current.days.map(item => item.day === day ? { ...item, state: 'opened' } : item) }))} />}
@@ -447,7 +467,7 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
     {editing ? <GiftEditor key={day} day={day} initial={entry} decoration={calendar.decoration}
       onSave={api.saveGift} onUpload={file => api.uploadMedia(day, file)}
       onSaved={value => { setEntry(value); setError(''); }}
-      onPublished={() => { onClose(); requestAnimationFrame(() => document.querySelector('.garland-landscape')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); }}
+      onPublished={() => { onClose(); requestAnimationFrame(() => document.querySelector('.garland-landscape')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })); }}
       onDirtyChange={setDirty} onBusyChange={setEditorBusy} onExpired={onExpired}
       onCancel={() => { if (confirmExit()) { setEditing(false); setDirty(false); } }} />
       : <>
@@ -467,4 +487,15 @@ function SurpriseDialog({ day, calendar, preview, onSelect, onClose, onExpired, 
 function Spinner() { return <span className="spinner" aria-hidden="true" />; }
 function ErrorBox({ message, retry }: { message: string; retry: () => void }) {
   return <div className="error-box" role="alert"><p>{message}</p><button className="text-button" onClick={retry}>Réessayer <Refresh /></button></div>;
+}
+
+function SoundToggle() {
+  const [muted, setMuted] = useState(isSoundMuted);
+  useEffect(() => onSoundMuteChange(() => setMuted(isSoundMuted())), []);
+  return <button type="button" className="text-button sound-toggle" aria-pressed={!muted} onClick={() => setSoundMuted(!muted)}
+    aria-label={muted ? 'Activer le son d’ouverture des cadeaux' : 'Couper le son d’ouverture des cadeaux'}>
+    <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5Z" />{muted ? <path d="m16 9.5 5 5m0-5-5 5" /> : <path d="M16 9a4.2 4.2 0 0 1 0 6M18.6 6.5a8 8 0 0 1 0 11" />}
+    </svg><span className="sound-label">{muted ? 'Son coupé' : 'Son'}</span>
+  </button>;
 }

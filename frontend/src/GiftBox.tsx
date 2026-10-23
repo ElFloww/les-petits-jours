@@ -25,11 +25,11 @@ export function GiftBox({ variant, label, state, className = '' }: {
   const style: Vars = { '--w': `${width}px`, '--h': `${height}px`, '--d': `${depth}px`, '--ry': `${rotation}deg` };
   return <span className={`box3d box-v${variant % models.length} box-${state} ${className}`} style={style} aria-hidden="true">
     <span className="cuboid box-body"><Faces front={label && <b className="box-tag">{label}</b>} /></span>
-    <span className="cuboid box-lid">
+    {state !== 'opened' && <span className="cuboid box-lid">
       <Faces />
       {state === 'locked' && <i className="snowcap" />}
       <span className="box-bow"><i /><i /><b /></span>
-    </span>
+    </span>}
     {state === 'opened' && <span className="box-magic"><i /><i /><i /><i /></span>}
   </span>;
 }

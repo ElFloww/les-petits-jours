@@ -245,7 +245,8 @@ describe('Private calendar', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Administration' }));
     await userEvent.click(screen.getByRole('button', { name: 'Cadeaux' }));
-    await userEvent.selectOptions(await screen.findByLabelText('Personne'), 'user2');
+    await userEvent.click(await screen.findByRole('button', { name: /Orléane/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /^1 décembre/ }));
     await userEvent.click(await screen.findByRole('button', { name: 'Modifier ce cadeau' }));
     await userEvent.clear(screen.getByLabelText('Titre du cadeau'));
     await userEvent.type(screen.getByLabelText('Titre du cadeau'), 'Un cadeau modifié');
